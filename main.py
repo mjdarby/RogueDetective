@@ -96,6 +96,18 @@ class Game:
             RightUpDown = '|'
             UpDownLeftRight = '|'
 
+            UpDown = '|'
+            LeftRight = '-'
+            UpLeft = chr(0xea)
+            UpRight = chr(0xed)
+            DownLeft = chr(0x0eb)
+            DownRight = chr(0xec)
+            DownLeftRight = chr(0xf7)
+            UpLeftRight = chr(0xf6)
+            LeftUpDown = chr(0xf4)
+            RightUpDown = chr(0xf5)
+            UpDownLeftRight = chr(0xee)
+
             if (system == 'Windows'):
                 LeftRight = chr(0xC4)
                 UpDown = chr(0xB3)
@@ -108,7 +120,6 @@ class Game:
                 LeftUpDown = chr(0xB4)
                 RightUpDown = chr(0xC3)
                 UpDownLeftRight = chr(0xC5)
-
 
             if (wallLeft or wallRight):
                 wall.character = LeftRight
