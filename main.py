@@ -96,7 +96,7 @@ class Game:
             RightUpDown = '|'
             UpDownLeftRight = '|'
 
-            if (system == 'Wsindows'):
+            if (system == 'Windows'):
                 LeftRight = chr(0xC4)
                 UpDown = chr(0xB3)
                 UpLeft = chr(0xD9)
