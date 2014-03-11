@@ -1,5 +1,5 @@
 import curses;
-import time;
+import time, platform;
 
 class Direction:
     """An enum for the possible movement directions"""
@@ -64,47 +64,76 @@ class Game:
             try:
                 self.walls[(y-1, x)]
                 wallUp = True
-            except Exception, e:
+            except Exception as e:
                 pass
             try:
                 self.walls[(y+1, x)]
                 wallDown = True
-            except Exception, e:
+            except Exception as e:
                 pass
             try:
                 self.walls[(y, x-1)]
                 wallLeft = True
-            except Exception, e:
+            except Exception as e:
                 pass
             try:
                 self.walls[(y, x+1)]
                 wallRight = True
-            except Exception, e:
+            except Exception as e:
                 pass
-            if (wallUp or wallDown):
-                wall.character = chr(0xB3)
+
+            system = platform.system()
+
+            UpDown = ord('\'')
+            LeftRight = ord('-')
+            UpLeft = ord('-')
+            UpRight = ord('-')
+            DownLeft = ord('-')
+            DownRight = ord('-')
+            DownLeftRight = ord('-')
+            UpLeftRight = ord('-')
+            LeftUpDown = ord('|')
+            RightUpDown = ord('|')
+            UpDownLeftRight = ord('|')
+
+            if (system == 'Windows'):
+                LeftRight = chr(0xC4)
+                UpDown = chr(0xB3)
+                UpLeft = chr(0xD9)
+                UpRight = chr(0xC0)
+                DownLeft = chr(0xBF)
+                DownRight = chr(0xDA)
+                DownLeftRight = chr(0xC2)
+                UpLeftRight = chr(0xC1)
+                LeftUpDown = chr(0xB4)
+                RightUpDown = chr(0xC3)
+                UpDownLeftRight = chr(0xC5)
+
+
+            if (wallLeft or wallRight):
+                wall.character = LeftRight
             else:
-                wall.character = chr(0xC4)
+                wall.character = UpDown
 
             # Yeah.. This just happened.
             if (wallUp and wallLeft):
-                wall.character = chr(0xD9)
+                wall.character = UpLeft
             if (wallUp and wallRight):
-                wall.character = chr(0xC0)
+                wall.character = UpDown
             if (wallDown and wallLeft):
-                wall.character = chr(0xBF)
+                wall.character = DownLeft
             if (wallDown and wallRight):
-                wall.character = chr(0xDA)
+                wall.character = DownRight
             if (wallDown and wallLeft and wallRight):
-                wall.character = chr(0xC2)
+                wall.character = DownLeftRight
             if (wallUp and wallLeft and wallRight):
-                wall.character = chr(0xC1)
+                wall.character = UpLeftRight
             if (wallLeft and wallUp and wallDown):
-                wall.character = chr(0xB4)
+                wall.character = LeftUpDown
             if (wallRight and wallUp and wallDown):
-                wall.character = chr(0xC3)
+                wall.character = RightUpDown
             if (wallRight and wallUp and wallDown and wallLeft):
-                wall.character = chr(0xC5)
+                wall.character = UpDownLeftRight
 
     def mainLoop(self):
         """Run the game while a flag is set."""
@@ -130,7 +159,7 @@ class Game:
                 try:
                     wall = self.walls[(y, x)]
                     self.screen.addstr(y, x, wall.character, curses.color_pair(0))
-                except Exception, e:
+                except Exception as e:
                     pass
 
         # Walls
@@ -209,7 +238,7 @@ class Player(object):
             wall = self.game.walls[(self.y, self.x)]
             self.x = oldX
             self.y = oldY
-        except Exception, e:
+        except Exception as e:
             # No wall.
             pass
 
