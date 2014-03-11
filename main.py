@@ -84,19 +84,19 @@ class Game:
 
             system = platform.system()
 
-            UpDown = ord('\'')
-            LeftRight = ord('-')
-            UpLeft = ord('-')
-            UpRight = ord('-')
-            DownLeft = ord('-')
-            DownRight = ord('-')
-            DownLeftRight = ord('-')
-            UpLeftRight = ord('-')
-            LeftUpDown = ord('|')
-            RightUpDown = ord('|')
-            UpDownLeftRight = ord('|')
+            UpDown = '|'
+            LeftRight = '-'
+            UpLeft = '-'
+            UpRight = '-'
+            DownLeft = '-'
+            DownRight = '-'
+            DownLeftRight = '-'
+            UpLeftRight = '-'
+            LeftUpDown = '|'
+            RightUpDown = '|'
+            UpDownLeftRight = '|'
 
-            if (system == 'Windows'):
+            if (system == 'Wsindows'):
                 LeftRight = chr(0xC4)
                 UpDown = chr(0xB3)
                 UpLeft = chr(0xD9)
@@ -119,7 +119,7 @@ class Game:
             if (wallUp and wallLeft):
                 wall.character = UpLeft
             if (wallUp and wallRight):
-                wall.character = UpDown
+                wall.character = UpRight
             if (wallDown and wallLeft):
                 wall.character = DownLeft
             if (wallDown and wallRight):
