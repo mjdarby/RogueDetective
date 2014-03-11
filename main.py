@@ -1,5 +1,5 @@
 import curses;
-import time, platform;
+import time, platform, random;
 
 class Direction:
     """An enum for the possible movement directions"""
@@ -7,6 +7,15 @@ class Direction:
     DOWN = 2
     LEFT = 3
     RIGHT = 4
+
+class InputActions:
+    """Enum for input actions"""
+    MOVE_UP = 1
+    MOVE_LEFT = 2
+    MOVE_RIGHT = 3
+    MOVE_DOWN = 4
+    OPEN_DOOR = 5
+    QUIT = 6
 
 class Game:
     """The game logic itself. The loop and input handling are here."""
@@ -18,20 +27,38 @@ class Game:
     GAMEWIDTH = 78
     GAMEHEIGHT = 21
 
+    KEYMAP = dict()
+    KEYMAP[ord('h')] = InputActions.MOVE_LEFT
+    KEYMAP[ord('j')] = InputActions.MOVE_DOWN
+    KEYMAP[ord('k')] = InputActions.MOVE_UP
+    KEYMAP[ord('l')] = InputActions.MOVE_RIGHT
+
+    KEYMAP[ord('4')] = InputActions.MOVE_LEFT
+    KEYMAP[ord('2')] = InputActions.MOVE_DOWN
+    KEYMAP[ord('8')] = InputActions.MOVE_UP
+    KEYMAP[ord('6')] = InputActions.MOVE_RIGHT
+
+    KEYMAP[ord('o')] = InputActions.OPEN_DOOR
+    KEYMAP[ord('q')] = InputActions.QUIT
+
     def __init__(self, screen):
         """Create the screen, player, assets."""
         self.screen = screen
         self.running = True
         self.player = Player(self)
         self.walls = dict()
+        self.doors = dict()
+        self.decorations = dict()
+        self.fences = dict()
+        self.statusLine = ""
 
         # Debug: Make walls
-        self.walls[(20, 21)] = Wall()
+        #self.walls[(20, 21)] = Wall()
         self.walls[(20, 22)] = Wall()
         self.walls[(20, 23)] = Wall()
         self.walls[(20, 24)] = Wall()
 
-        self.walls[(19, 20)] = Wall()
+#        self.walls[(19, 20)] = Wall()
         self.walls[(18, 20)] = Wall()
         self.walls[(17, 20)] = Wall()
         self.walls[(16, 20)] = Wall()
@@ -54,6 +81,31 @@ class Game:
         self.walls[(18, 21)] = Wall()
         self.walls[(18, 23)] = Wall()
 
+        self.fences[(15, 20)] = Fence()
+        self.fences[(14, 20)] = Fence()
+        self.fences[(13, 20)] = Fence()
+        self.fences[(12, 20)] = Fence()
+        self.fences[(11, 20)] = Fence()
+
+        self.fences[(11, 21)] = Fence()
+        self.fences[(11, 22)] = Fence()
+        self.fences[(11, 23)] = Fence()
+        self.fences[(11, 24)] = Fence()
+
+        self.fences[(15, 24)] = Fence()
+        self.fences[(14, 24)] = Fence()
+        self.fences[(13, 24)] = Fence()
+        self.fences[(12, 24)] = Fence()
+        self.fences[(11, 24)] = Fence()
+
+        self.doors[(20, 21)] = Door(self, 20, 21)
+        self.doors[(19, 20)] = Door(self, 19, 20)
+
+        # Random decoration
+        for _ in range(50):
+            (y, x) = (random.randint(1, Game.GAMEHEIGHT), random.randint(1, Game.GAMEWIDTH))
+            self.decorations[(y, x)] = Decoration()
+
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
         # This is one of the ugliest things I've ever written.
@@ -61,6 +113,7 @@ class Game:
         for (y, x) in self.walls:
             wall = self.walls[(y, x)]
             wallUp = wallDown = wallLeft = wallRight = False
+            # Check for walls via worst method possible
             try:
                 self.walls[(y-1, x)]
                 wallUp = True
@@ -81,6 +134,27 @@ class Game:
                 wallRight = True
             except Exception as e:
                 pass
+            # Check for doors using the same awful method
+            try:
+                self.doors[(y-1, x)]
+                wallUp = True
+            except Exception as e:
+                pass
+            try:
+                self.doors[(y+1, x)]
+                wallDown = True
+            except Exception as e:
+                pass
+            try:
+                self.doors[(y, x-1)]
+                wallLeft = True
+            except Exception as e:
+                pass
+            try:
+                self.doors[(y, x+1)]
+                wallRight = True
+            except Exception as e:
+                pass
 
             system = platform.system()
 
@@ -96,17 +170,19 @@ class Game:
             RightUpDown = '|'
             UpDownLeftRight = '|'
 
-            UpDown = '|'
-            LeftRight = '-'
-            UpLeft = chr(0xea)
-            UpRight = chr(0xed)
-            DownLeft = chr(0x0eb)
-            DownRight = chr(0xec)
-            DownLeftRight = chr(0xf7)
-            UpLeftRight = chr(0xf6)
-            LeftUpDown = chr(0xf4)
-            RightUpDown = chr(0xf5)
-            UpDownLeftRight = chr(0xee)
+            # Terrible attempt at getting nice walls in Linux
+            # UpDown = '|'
+            # LeftRight = '-'
+            # UpLeft = chr(0x6a)
+            # UpRight = chr(0x6d)
+            # DownLeft = chr(0x06b)
+            # DownRight = chr(0x6c)
+            # DownLeftRight = chr(0x77)
+            # UpLeftRight = chr(0x76)
+            # LeftUpDown = chr(0x75)
+            # RightUpDown = chr(0x74)
+            # UpDownLeftRight = chr(0x6e)
+            # Smells bad, huh.
 
             if (system == 'Windows'):
                 LeftRight = chr(0xC4)
@@ -167,40 +243,117 @@ class Game:
         for x in range(Game.TOPLEFT[0], Game.GAMEWIDTH + 1):
             for y in range(Game.TOPLEFT[1], Game.GAMEHEIGHT + 1):
                 self.screen.addstr(y, x, '.', curses.color_pair(0))
-                try:
-                    wall = self.walls[(y, x)]
-                    self.screen.addstr(y, x, wall.character, curses.color_pair(0))
-                except Exception as e:
-                    pass
+
+        # Decor
+        for (y, x) in self.decorations:
+            decoration = self.decorations[(y, x)]
+            self.screen.addstr(y, x, decoration.character, decoration.colour)
+
+        # Fences
+        for (y, x) in self.fences:
+            fence = self.fences[(y, x)]
+            self.screen.addstr(y, x, fence.character, fence.colour)
 
         # Walls
+        for (y, x) in self.walls:
+            wall = self.walls[(y, x)]
+            self.screen.addstr(y, x, wall.character, curses.color_pair(0))
+
+        # Doors
+        for (y, x) in self.doors:
+            door = self.doors[(y, x)]
+            self.screen.addstr(y, x, door.character, curses.color_pair(1))
 
         # Draw the entities like players, NPCs
         player = self.player
         self.screen.addstr(player.y, player.x,
                            player.character, curses.color_pair(1))
 
+        # Status line printing
+        self.screen.addstr(0, 0, self.statusLine)
+        self.statusLine = ""
+
+        # Debug stuff
+        self.screen.addstr(Game.GAMEHEIGHT+1, 1, str(player.x) + " " + str(player.y))
+
         # Put the cursor on the player
         self.screen.move(player.y, player.x)
         self.screen.refresh()
 
-        # Debug stuff
-        self.screen.addstr(0, 0, str(player.x) + " " + str(player.y))
+    def getKey(self):
+        gotKey = False
+        while not gotKey:
+            try:
+                key = Game.KEYMAP[self.screen.getch()]
+                return key
+            except:
+                pass
+
+    def getYesNo(self):
+        gotYesNo = False
+        key = None
+        while not gotYesNo:
+            key = self.screen.getch()
+            if key is ord('y') or key is ord('n'):
+                gotYesNo = True
+        return key is ord('y')
+
+    def printStatus(self, status):
+        """Prints the status line, sets it too so it doesn't get wiped until next frame"""
+        self.statusLine = status
+        self.screen.addstr(0, 0, " " * 50)
+        self.screen.addstr(0, 0, status)
+        self.screen.move(self.player.y, self.player.x)
 
     def handleInput(self):
         """ Wait for the player to press a key, then handle
             input appropriately."""
-        character = self.screen.getch()
-        if character == ord('q'):
-            self.running = False
-        elif character == ord('h'):
-            self.player.move(Direction.LEFT)
-        elif character == ord('j'):
-            self.player.move(Direction.DOWN)
-        elif character == ord('k'):
-            self.player.move(Direction.UP)
-        elif character == ord('l'):
-            self.player.move(Direction.RIGHT)
+        actionTaken = False
+        while not actionTaken:
+            # Update the status line
+            key = self.getKey()
+            actionTaken = True
+            # Quit?
+            if key == InputActions.QUIT:
+                self.running = False
+            # Move?
+            elif key == InputActions.MOVE_LEFT:
+                actionTaken = self.player.attemptMove(Direction.LEFT)
+            elif key == InputActions.MOVE_DOWN:
+                actionTaken = self.player.attemptMove(Direction.DOWN)
+            elif key == InputActions.MOVE_UP:
+                actionTaken = self.player.attemptMove(Direction.UP)
+            elif key == InputActions.MOVE_RIGHT:
+                actionTaken = self.player.attemptMove(Direction.RIGHT)
+            # Open doors?
+            elif key == InputActions.OPEN_DOOR:
+                self.printStatus("Which direction?")
+                direction = self.screen.getch()
+                playerPos = [self.player.y, self.player.x]
+                try:
+                    direction = Game.KEYMAP[direction]
+                    if direction == InputActions.MOVE_LEFT:
+                        playerPos[1] -= 1
+                    elif direction == InputActions.MOVE_DOWN:
+                        playerPos[0] += 1
+                    elif direction == InputActions.MOVE_UP:
+                        playerPos[0] -= 1
+                    elif direction == InputActions.MOVE_RIGHT:
+                        playerPos[1] += 1
+
+                    if playerPos != [self.player.y, self.player.x]:
+                        try:
+                            door = self.doors[tuple(playerPos)]
+                            door.open()
+                        except:
+                            self.printStatus("No door there!")
+                            actionTaken = False
+                    else:
+                        self.printStatus("Nevermind.")
+                        actionTaken = False
+                except:
+                    self.printStatus("Nevermind.")
+                    actionTaken = False
 
     def logic(self):
         pass
@@ -211,6 +364,40 @@ class Grid(object):
         """Initialises the game grid to X by Y tiles."""
         self.xDimension = xDimension
         self.yDimension = yDimension
+
+class Decoration(object):
+    """Just a decorative tile."""
+    def __init__(self):
+        self.character = '?'
+        self.colour = curses.color_pair(3)
+
+class Fence(object):
+    """Fences are walls that can be jumped over."""
+    def __init__(self):
+        self.character = '#'
+        self.colour = curses.color_pair(0)
+
+class Door(object):
+    """Players can open or close these!"""
+    def __init__(self, game, y, x):
+        self.y = y
+        self.x = x
+        self.character = '+'
+        self.closed = True
+        self.colour = curses.COLOR_RED
+        self.game = game
+
+    def open(self):
+        """Open the door such that it doesn't blend with the walls"""
+        self.closed = not self.closed
+        self.character = '+' if self.closed else '-'
+        if not self.closed:
+            try:
+                self.game.walls[(self.y, self.x-1)] # Ridiculous test for wall on the left
+                self.character = '|'
+            except:
+                pass
+
 
 class Wall(object):
     """Wall objects, which the player cannot walk through"""
@@ -231,10 +418,63 @@ class Player(object):
         self.game = game
         self.colour = curses.COLOR_WHITE
 
+    def checkObstruction(self, direction = None, steps = 1):
+        # Don't let them walk through walls or closed doors
+        (candidateY, candidateX) = (self.y, self.x)
+        if direction == Direction.UP:
+            candidateY -= steps
+        elif direction == Direction.DOWN:
+            candidateY += steps
+        elif direction == Direction.LEFT:
+            candidateX -= steps
+        elif direction == Direction.RIGHT:
+            candidateX += steps
+
+        try:
+            wall = self.game.walls[(candidateY, candidateX)]
+            return True
+        except Exception as e:
+            # No wall.
+            pass
+
+        try:
+            door = self.game.doors[(candidateY, candidateX)]
+            if door.closed:
+                return True
+        except Exception as e:
+            # No door.
+            pass
+
+        try:
+            fence = self.game.fences[(candidateY, candidateX)]
+            return True
+        except:
+            pass
+
+        return False
+
+    def checkForFence(self, direction = None, steps = 1):
+        """Check for fence in direction specified, at distance steps"""
+        # Don't let them walk through walls or closed doors
+        (candidateY, candidateX) = (self.y, self.x)
+        if direction == Direction.UP:
+            candidateY -= steps
+        elif direction == Direction.DOWN:
+            candidateY += steps
+        elif direction == Direction.LEFT:
+            candidateX -= steps
+        elif direction == Direction.RIGHT:
+            candidateX += steps
+
+        try:
+            fence = self.game.fences[(candidateY, candidateX)]
+            return True
+        except:
+            pass
+
+        return False
+
     def move(self, direction, steps=1):
-        """Move the player one unit in the specified direction"""
-        oldX = self.x
-        oldY = self.y
         if direction == Direction.UP:
             self.y -= steps
         elif direction == Direction.DOWN:
@@ -244,25 +484,50 @@ class Player(object):
         elif direction == Direction.RIGHT:
             self.x += steps
 
-        # Don't let them walk through walls.
-        try:
-            wall = self.game.walls[(self.y, self.x)]
-            self.x = oldX
-            self.y = oldY
-        except Exception as e:
-            # No wall.
-            pass
+    def attemptMove(self, direction):
+        """Move the player one unit in the specified direction"""
+        moved = True
+
+        # Don't move if bumping in to a wall, door, fence..
+        if not self.checkObstruction(direction, 1):
+            self.move(direction)
+        else:
+            moved = False
+
+        # If it was a fence, let them try and jump it if there's nothing left
+        if self.checkForFence(direction, 1) and not moved:
+            moreFences = self.checkObstruction(direction, 2)
+            if not moreFences:
+                self.game.printStatus("Jump fence?")
+                jumpFence = self.game.getYesNo()
+                if jumpFence:
+                    # Put them on the other side of the fence.
+                    self.move(direction, 2)
+                    moved = True
+                else:
+                    moved = False
+            else:
+                moved = False
+            self.game.printStatus("")
+
+        # TODO: Or indeed, NPCs
 
         # Bounce them back if they've walked off the terminal!
         if (self.x < Game.TOPLEFT[0]):
             self.x = Game.TOPLEFT[0]
+            moved = False
         elif (self.x >= Game.TOPLEFT[0] + Game.GAMEWIDTH):
             self.x = Game.GAMEWIDTH
+            moved = False
 
         if (self.y < Game.TOPLEFT[1]):
             self.y = Game.TOPLEFT[1]
+            moved = False
         elif (self.y >= Game.TOPLEFT[1] + Game.GAMEHEIGHT):
             self.y = Game.GAMEHEIGHT
+            moved = False
+
+        return moved
 
 def main(stdscr):
     """Initialises the Game object and basically gets out of the way"""
@@ -272,6 +537,7 @@ def main(stdscr):
         stdscr.getch()
         return -1
     curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
+    curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
     win = curses.newwin(Game.YRES, Game.XRES)
     win.bkgd(' ', curses.color_pair(0))
     game = Game(win)
