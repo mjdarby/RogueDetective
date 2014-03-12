@@ -301,6 +301,7 @@ class Game:
                         try:
                             door = self.doors[tuple(playerPos)]
                             door.open()
+                            self.printStatus("")
                         except:
                             self.printStatus("No door there!")
                             actionTaken = False
@@ -368,15 +369,43 @@ class House(object):
     MINIMUM_WIDTH = 20
     MINIMUM_HEIGHT = 8
 
+    MINIMUM_ROOM_DIMENSION = 3
+
+    class Room(object):
+        """Representation of a room in the house"""
+        def __init__(self, y, x, height, width):
+            self.y = y
+            self.x = x
+            self.height = height
+            self.width = width
+            self.walls = dict()
+            self.generateWalls()
+
+        def generateWalls(self):
+            for x in range(self.width + 1): # +1 to include the corners
+                self.walls[(0, x)] = Wall()
+                self.walls[(self.height, x)] = Wall()
+            for y in range(self.height):
+                self.walls[(y, 0)] = Wall()
+                self.walls[(y, self.width)] = Wall()
+
     def __init__(self, game):
         self.width = 0
         self.height = 0
+        self.rooms = []
         self.walls = dict()
         self.decorations = dict()
         self.game = game
 
     def generateLayout(self):
         # Create the outer walls
+        self.generateWalls()
+
+        # Create rooms
+        self.generateRooms()
+
+    def generateWalls(self):
+        """Create the outer walls of the house"""
         self.width = House.MINIMUM_WIDTH + random.randint(0, 10)
         self.height = House.MINIMUM_HEIGHT + random.randint(0, 10)
         for x in range(self.width + 1): # +1 to include the corners
@@ -395,12 +424,78 @@ class House(object):
         self.doorX = random.randint(1,self.width-1)
         del self.walls[(self.height, self.doorX)]
 
+    def generateFirstPartition(self):
+        # Make the initial rooms via the first partition
+        widthwisePartition = bool(random.getrandbits(1))
+        cut = random.randint(House.MINIMUM_ROOM_DIMENSION, 
+                            (self.height if widthwisePartition else self.width) - House.MINIMUM_ROOM_DIMENSION)
+        if widthwisePartition:
+            room = House.Room(0, 0, cut, self.width)
+            self.rooms.append(room)
+            room = House.Room(cut, 0, self.height - cut, self.width)
+            self.rooms.append(room)
+        else:
+            room = House.Room(0, 0, self.height, cut)
+            self.rooms.append(room)
+            room = House.Room(0, cut, self.height, self.width - cut)
+            self.rooms.append(room)
+
+    def generateRooms(self):
+        """Create the rooms by repeated partitioning"""
+        # How many partitions should we make, excluding the first?
+        numPartitions = random.randint(2, 3)
+        self.generateFirstPartition()
+
+        for _ in range(numPartitions):
+            # Get a random room, which we'll partition just like the first room
+            attempts = 10
+            randomRoomIndex = random.randint(0, len(self.rooms) - 1)
+            baseRoom = self.rooms[randomRoomIndex]
+            widthwisePartition = bool(random.getrandbits(1))
+            while baseRoom.height < (2 * House.MINIMUM_ROOM_DIMENSION) or baseRoom.width < (2 * House.MINIMUM_ROOM_DIMENSION):
+                randomRoomIndex = random.randint(0, len(self.rooms) - 1)
+                baseRoom = self.rooms[randomRoomIndex]
+                widthwisePartition = bool(random.getrandbits(1))
+                attempts -= 1
+                if attempts < 0:
+                    # If we really can't make it work, start fresh.
+                    attempts = 10
+                    del self.rooms[:]
+                    self.generateFirstPartition()
+
+            cut = random.randint(House.MINIMUM_ROOM_DIMENSION, 
+                                 (baseRoom.height if widthwisePartition else baseRoom.width) - House.MINIMUM_ROOM_DIMENSION)
+#            cut = random.randint(House.MINIMUM_ROOM_DIMENSION, baseRoom.height if widthwisePartition else baseRoom.width)
+            if widthwisePartition:
+                room = House.Room(baseRoom.y, baseRoom.x, cut, baseRoom.width)
+                self.rooms.append(room)
+                room = House.Room(baseRoom.y + cut, baseRoom.x, baseRoom.height - cut, baseRoom.width)
+                self.rooms.append(room)
+            else:
+                room = House.Room(baseRoom.y, baseRoom.x, baseRoom.height, cut)
+                self.rooms.append(room)
+                room = House.Room(baseRoom.y, baseRoom.x + cut, baseRoom.height, baseRoom.width  - cut)
+                self.rooms.append(room)
+            self.rooms.remove(baseRoom)
+
     def createHouse(self, y, x):
+        """Actually builds the house, regardless of if it fits or not"""
+        # Build the walls..
         for (y1, x1) in self.walls:
             self.game.walls[(y+y1), (x+x1)] = Wall()
+
+        # Floors..
         for (y1, x1) in self.decorations:
             self.game.decorations[(y+y1), (x+x1)] = self.decorations[y1, x1]
+
+        # Doors..
         self.game.doors[(self.height + y, self.doorX + x)] = Door(self.game, self.height, self.doorX)
+        
+        # Inner walls..
+        for room in self.rooms:
+            (yRoom, xRoom) = (room.y, room.x)
+            for (y1, x1) in room.walls:
+                self.game.walls[(y + yRoom + y1), (x + xRoom + x1)] = Wall()
 
     def area(self):
         """Returns the total area required to place house."""
