@@ -60,7 +60,7 @@ class Game:
         # Testing house generation:
         house = House(self)
         house.generateLayout()
-        house.createHouse(2, 4)
+        house.createHouse(1, 4)
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -367,9 +367,9 @@ class Wall(object):
 class House(object):
     """Houses are procedurally generated constructs in which NPCs live."""
     MINIMUM_WIDTH = 20
-    MINIMUM_HEIGHT = 8
+    MINIMUM_HEIGHT = 9
 
-    MINIMUM_ROOM_DIMENSION = 3
+    MINIMUM_ROOM_DIMENSION = 4
 
     class Room(object):
         """Representation of a room in the house"""
@@ -395,6 +395,7 @@ class House(object):
         self.rooms = []
         self.walls = dict()
         self.decorations = dict()
+        self.doors = dict()
         self.game = game
 
     def generateLayout(self):
@@ -403,6 +404,9 @@ class House(object):
 
         # Create rooms
         self.generateRooms()
+
+        # Create doors
+        self.generateDoors()
 
     def generateWalls(self):
         """Create the outer walls of the house"""
@@ -434,11 +438,15 @@ class House(object):
             self.rooms.append(room)
             room = House.Room(cut, 0, self.height - cut, self.width)
             self.rooms.append(room)
+            doorPos = random.randint(0, self.width - 1)
+            self.doors[(cut, doorPos)] = Door(self.game, cut, doorPos)
         else:
             room = House.Room(0, 0, self.height, cut)
             self.rooms.append(room)
             room = House.Room(0, cut, self.height, self.width - cut)
             self.rooms.append(room)
+            doorPos = random.randint(1, self.height - 1)
+            self.doors[(doorPos, cut)] = Door(self.game, doorPos, cut)
 
     def generateRooms(self):
         """Create the rooms by repeated partitioning"""
@@ -452,31 +460,50 @@ class House(object):
             randomRoomIndex = random.randint(0, len(self.rooms) - 1)
             baseRoom = self.rooms[randomRoomIndex]
             widthwisePartition = bool(random.getrandbits(1))
+
+            # Make sure the room will be able to split. If not, pick a new room up to 10 times.
             while baseRoom.height < (2 * House.MINIMUM_ROOM_DIMENSION) or baseRoom.width < (2 * House.MINIMUM_ROOM_DIMENSION):
+                # If we really can't make it work with the rooms we have, start fresh.
+                if attempts < 0:
+                    attempts = 10
+                    del self.rooms[:]
+                    self.doors.clear()
+                    self.generateFirstPartition()
+
                 randomRoomIndex = random.randint(0, len(self.rooms) - 1)
                 baseRoom = self.rooms[randomRoomIndex]
                 widthwisePartition = bool(random.getrandbits(1))
                 attempts -= 1
-                if attempts < 0:
-                    # If we really can't make it work, start fresh.
-                    attempts = 10
-                    del self.rooms[:]
-                    self.generateFirstPartition()
 
             cut = random.randint(House.MINIMUM_ROOM_DIMENSION, 
                                  (baseRoom.height if widthwisePartition else baseRoom.width) - House.MINIMUM_ROOM_DIMENSION)
-#            cut = random.randint(House.MINIMUM_ROOM_DIMENSION, baseRoom.height if widthwisePartition else baseRoom.width)
+
+            # Create the two rooms annd put a door in connecting the two new rooms
             if widthwisePartition:
                 room = House.Room(baseRoom.y, baseRoom.x, cut, baseRoom.width)
                 self.rooms.append(room)
                 room = House.Room(baseRoom.y + cut, baseRoom.x, baseRoom.height - cut, baseRoom.width)
                 self.rooms.append(room)
+                doorPos = random.randint(baseRoom.x+1, baseRoom.x + baseRoom.width - 1)
+                self.doors[(baseRoom.y + cut, doorPos)] = Door(self.game, baseRoom.y + cut, doorPos)
             else:
                 room = House.Room(baseRoom.y, baseRoom.x, baseRoom.height, cut)
                 self.rooms.append(room)
                 room = House.Room(baseRoom.y, baseRoom.x + cut, baseRoom.height, baseRoom.width  - cut)
                 self.rooms.append(room)
+                doorPos = random.randint(baseRoom.y+1, baseRoom.y + baseRoom.height - 1)
+                self.doors[(doorPos, baseRoom.x + cut)] = Door(self.game, doorPos, baseRoom.x + cut)
+
+            # Remove the original room, because it's now two rooms.
             self.rooms.remove(baseRoom)
+
+    def generateFrontDoor(self):
+        """Create the front door"""
+        pass
+
+    def generateDoors(self):
+        """Make the doors for the house"""
+        self.generateFrontDoor()
 
     def createHouse(self, y, x):
         """Actually builds the house, regardless of if it fits or not"""
@@ -488,14 +515,28 @@ class House(object):
         for (y1, x1) in self.decorations:
             self.game.decorations[(y+y1), (x+x1)] = self.decorations[y1, x1]
 
-        # Doors..
-        self.game.doors[(self.height + y, self.doorX + x)] = Door(self.game, self.height, self.doorX)
-        
         # Inner walls..
         for room in self.rooms:
             (yRoom, xRoom) = (room.y, room.x)
             for (y1, x1) in room.walls:
                 self.game.walls[(y + yRoom + y1), (x + xRoom + x1)] = Wall()
+
+        # Doors..
+        for (y1, x1) in self.doors:
+            # If it rests at an intersection of three walls, move the door.
+            # This is the ugliest line in history. Along with the other condition.
+            if ((y + y1-1, x + x1) in self.game.walls and (y + y1+1, x + x1) in self.game.walls) and ((y + y1, x + x1+1) in self.game.walls or (y + y1, x + x1-1) in self.game.walls):
+                y1 -= 1
+            elif ((y + y1, x + x1-1) in self.game.walls and (y + y1, x + x1+1) in self.game.walls) and  ((y + y1+1, x + x1) in self.game.walls or (y + y1-1, x + x1) in self.game.walls):
+                x1 -= 1
+            # Remove any walls that happen to be hanging around where they shouldn't be
+            try:
+                wall = self.game.walls[(y + y1, x + x1)]
+                del self.game.walls[(y + y1, x + x1)]
+            except:
+                # No door!
+                pass
+            self.game.doors[(y1 + y, x1 + x)] = Door(self.game, y1 + y, x1 + x)
 
     def area(self):
         """Returns the total area required to place house."""
