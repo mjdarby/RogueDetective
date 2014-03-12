@@ -57,10 +57,13 @@ class Game:
             (y, x) = (random.randint(1, Game.GAMEHEIGHT), random.randint(1, Game.GAMEWIDTH))
             self.decorations[(y, x)] = Decoration()
 
+        # Test town:
+        town = Town(self, 1, 1, 1, 3)
+
         # Testing house generation:
-        house = House(self)
-        house.generateLayout()
-        house.createHouse(1, 4)
+        # house = House(self)
+        # house.generateLayout()
+        # house.createHouse(1, 4)
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -364,9 +367,74 @@ class Wall(object):
         self.character = '|'
         self.colour = curses.COLOR_WHITE
 
+class Town(object):
+    """A grid with random edges removed, houses placed on the grid"""
+
+    GRID_SIZE = 20
+    ROAD_WIDTH = 3
+    ROAD_HEIGHT = 2
+
+    class Square(object):
+        def __init__(self, game, y, x, heightIdx, widthIdx):
+            self.y = y
+            self.x = x
+            self.game = game
+            self.heightIdx = heightIdx
+            self.widthIdx = widthIdx
+
+        def generateHouse(self):
+            house = House(self.game)
+            house.generateLayout(Town.GRID_SIZE, Town.GRID_SIZE)
+            house.createHouse(self.y, self.x)
+
+    def __init__(self, game, y, x, height, width):
+        self.y = y
+        self.x = x
+        self.game = game
+        # In grid squares, not in tiles
+        self.height = height
+        self.width = width
+        self.squares = dict()
+        self.roads = dict()
+
+        self.generateGrid()
+        self.createRoads()
+
+    def createRoads(self):
+        """Actually make the roads"""
+        for (y1, x1) in self.roads:
+            self.game.decorations[(self.y+y1), (self.x+x1)] = self.roads[y1, x1]
+
+    def generateRoads(self, heightIdx, widthIdx):
+        """Create roads for given grid square"""
+        baseY = heightIdx * (Town.GRID_SIZE + Town.ROAD_HEIGHT)
+        baseX = widthIdx * (Town.GRID_SIZE + Town.ROAD_WIDTH)
+        road = Decoration()
+        road.character = '#'
+        road.colour = curses.color_pair(4)
+        for roadX in range(Town.GRID_SIZE + Town.ROAD_WIDTH - 1):
+            for width in range(Town.ROAD_WIDTH):
+                self.roads[(baseY + roadX, baseX + Town.GRID_SIZE + width)] = road
+        for roadX in range(Town.GRID_SIZE + Town.ROAD_HEIGHT):
+            for width in range(Town.ROAD_HEIGHT):
+                self.roads[(baseY + Town.GRID_SIZE + width, baseX + roadX)] = road
+
+
+    def generateGrid(self):
+        """Generate the grids + roads + houses"""
+        for y in range(self.height):
+            squareY = y * (Town.GRID_SIZE + Town.ROAD_WIDTH) + self.y
+            for x in range(self.width):
+                squareX = x * (Town.GRID_SIZE + Town.ROAD_WIDTH) + self.x
+                # Make a square
+                self.squares[(y, x)] = Town.Square(self.game, squareY, squareX, y, x)
+                # For now, put a house in the square
+                self.squares[(y,x)].generateHouse()
+                self.generateRoads(y, x)
+
 class House(object):
     """Houses are procedurally generated constructs in which NPCs live."""
-    MINIMUM_WIDTH = 20
+    MINIMUM_WIDTH = 15
     MINIMUM_HEIGHT = 9
 
     MINIMUM_ROOM_DIMENSION = 4
@@ -398,9 +466,9 @@ class House(object):
         self.doors = dict()
         self.game = game
 
-    def generateLayout(self):
+    def generateLayout(self, maxHeight, maxWidth):
         # Create the outer walls
-        self.generateWalls()
+        self.generateWalls(maxHeight, maxWidth)
 
         # Create rooms
         self.generateRooms()
@@ -408,11 +476,11 @@ class House(object):
         # Create doors
         self.generateDoors()
 
-    def generateWalls(self):
+    def generateWalls(self, maxHeight, maxWidth):
         """Create the outer walls of the house"""
-        self.width = House.MINIMUM_WIDTH + random.randint(0, 10)
-        self.height = House.MINIMUM_HEIGHT + random.randint(0, 10)
-        for x in range(self.width + 1): # +1 to include the corners
+        self.width = random.randint(House.MINIMUM_WIDTH, maxWidth) - 1
+        self.height = random.randint(House.MINIMUM_WIDTH, maxHeight) - 1
+        for x in range(self.width): # +1 to include the corners
             self.walls[(0, x)] = Wall()
             self.walls[(self.height, x)] = Wall()
             # Might as well do the floors too, while we're here
