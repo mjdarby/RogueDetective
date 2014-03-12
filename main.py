@@ -52,59 +52,15 @@ class Game:
         self.fences = dict()
         self.statusLine = ""
 
-        # Debug: Make walls
-        #self.walls[(20, 21)] = Wall()
-        self.walls[(20, 22)] = Wall()
-        self.walls[(20, 23)] = Wall()
-        self.walls[(20, 24)] = Wall()
-
-#        self.walls[(19, 20)] = Wall()
-        self.walls[(18, 20)] = Wall()
-        self.walls[(17, 20)] = Wall()
-        self.walls[(16, 20)] = Wall()
-
-        self.walls[(16, 21)] = Wall()
-        self.walls[(16, 22)] = Wall()
-        self.walls[(16, 23)] = Wall()
-        self.walls[(16, 24)] = Wall()
-
-        self.walls[(16, 24)] = Wall()
-        self.walls[(17, 24)] = Wall()
-        self.walls[(18, 24)] = Wall()
-        self.walls[(19, 24)] = Wall()
-
-        self.walls[(20, 20)] = Wall()
-
-        self.walls[(18, 22)] = Wall()
-        self.walls[(19, 22)] = Wall()
-        self.walls[(17, 22)] = Wall()
-        self.walls[(18, 21)] = Wall()
-        self.walls[(18, 23)] = Wall()
-
-        self.fences[(15, 20)] = Fence()
-        self.fences[(14, 20)] = Fence()
-        self.fences[(13, 20)] = Fence()
-        self.fences[(12, 20)] = Fence()
-        self.fences[(11, 20)] = Fence()
-
-        self.fences[(11, 21)] = Fence()
-        self.fences[(11, 22)] = Fence()
-        self.fences[(11, 23)] = Fence()
-        self.fences[(11, 24)] = Fence()
-
-        self.fences[(15, 24)] = Fence()
-        self.fences[(14, 24)] = Fence()
-        self.fences[(13, 24)] = Fence()
-        self.fences[(12, 24)] = Fence()
-        self.fences[(11, 24)] = Fence()
-
-        self.doors[(20, 21)] = Door(self, 20, 21)
-        self.doors[(19, 20)] = Door(self, 19, 20)
-
         # Random decoration
         for _ in range(50):
             (y, x) = (random.randint(1, Game.GAMEHEIGHT), random.randint(1, Game.GAMEWIDTH))
             self.decorations[(y, x)] = Decoration()
+
+        # Testing house generation:
+        house = House(self)
+        house.generateLayout()
+        house.createHouse(2, 4)
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -242,7 +198,7 @@ class Game:
         # Floors first, then we'll override them
         for x in range(Game.TOPLEFT[0], Game.GAMEWIDTH + 1):
             for y in range(Game.TOPLEFT[1], Game.GAMEHEIGHT + 1):
-                self.screen.addstr(y, x, '.', curses.color_pair(0))
+                self.screen.addstr(y, x, '.', curses.color_pair(3))
 
         # Decor
         for (y, x) in self.decorations:
@@ -398,7 +354,6 @@ class Door(object):
             except:
                 pass
 
-
 class Wall(object):
     """Wall objects, which the player cannot walk through"""
     def __init__(self):
@@ -407,6 +362,49 @@ class Wall(object):
         self.y = 20
         self.character = '|'
         self.colour = curses.COLOR_WHITE
+
+class House(object):
+    """Houses are procedurally generated constructs in which NPCs live."""
+    MINIMUM_WIDTH = 20
+    MINIMUM_HEIGHT = 8
+
+    def __init__(self, game):
+        self.width = 0
+        self.height = 0
+        self.walls = dict()
+        self.decorations = dict()
+        self.game = game
+
+    def generateLayout(self):
+        # Create the outer walls
+        self.width = House.MINIMUM_WIDTH + random.randint(0, 10)
+        self.height = House.MINIMUM_HEIGHT + random.randint(0, 10)
+        for x in range(self.width + 1): # +1 to include the corners
+            self.walls[(0, x)] = Wall()
+            self.walls[(self.height, x)] = Wall()
+            # Might as well do the floors too, while we're here
+            for y in range(self.height):
+                decoration = Decoration()
+                decoration.character = '.'
+                decoration.colour = curses.color_pair(0)
+                self.decorations[(y, x)] = decoration
+        for y in range(self.height):
+            self.walls[(y, 0)] = Wall()
+            self.walls[(y, self.width)] = Wall()
+        # For now, pick a random wall on the bottom and put the door in it
+        self.doorX = random.randint(1,self.width-1)
+        del self.walls[(self.height, self.doorX)]
+
+    def createHouse(self, y, x):
+        for (y1, x1) in self.walls:
+            self.game.walls[(y+y1), (x+x1)] = Wall()
+        for (y1, x1) in self.decorations:
+            self.game.decorations[(y+y1), (x+x1)] = self.decorations[y1, x1]
+        self.game.doors[(self.height + y, self.doorX + x)] = Door(self.game, self.height, self.doorX)
+
+    def area(self):
+        """Returns the total area required to place house."""
+        return self.width * self.height
 
 class Player(object):
     """The player object, containing data such as HP etc."""
