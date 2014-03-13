@@ -27,6 +27,11 @@ class Game:
     GAMEWIDTH = 78
     GAMEHEIGHT = 21
 
+    MAPWIDTH = 200
+    MAPHEIGHT = 200
+    SCREENWIDTH = 200
+    SCREENHEIGHT = 201 # because of really dumb cursor bugs
+
     KEYMAP = dict()
     KEYMAP[ord('h')] = InputActions.MOVE_LEFT
     KEYMAP[ord('j')] = InputActions.MOVE_DOWN
@@ -44,6 +49,7 @@ class Game:
     def __init__(self, screen):
         """Create the screen, player, assets."""
         self.screen = screen
+        self.gameScreen = curses.newpad(Game.SCREENHEIGHT, Game.SCREENWIDTH)
         self.running = True
         self.player = Player(self)
         self.walls = dict()
@@ -53,12 +59,12 @@ class Game:
         self.statusLine = ""
 
         # Random decoration
-        for _ in range(50):
-            (y, x) = (random.randint(1, Game.GAMEHEIGHT), random.randint(1, Game.GAMEWIDTH))
+        for _ in range(1000):
+            (y, x) = (random.randint(1, Game.MAPHEIGHT - 1), random.randint(1, Game.MAPWIDTH - 1))
             self.decorations[(y, x)] = Decoration()
 
         # Test town:
-        town = Town(self, 1, 1, 1, 3)
+        town = Town(self, 0, 0, 9, 8)
 
         # Testing house generation:
         # house = House(self)
@@ -196,36 +202,37 @@ class Game:
         """ Draw it all, filling in the blanks as necessary """
         # Wipe out the screen.
         self.screen.erase()
+        self.gameScreen.erase()
 
         # Draw the floors, walls, etc.
         # Floors first, then we'll override them
-        for x in range(Game.TOPLEFT[0], Game.GAMEWIDTH + 1):
-            for y in range(Game.TOPLEFT[1], Game.GAMEHEIGHT + 1):
-                self.screen.addstr(y, x, '.', curses.color_pair(3))
+        for x in range(0, Game.MAPWIDTH):
+            for y in range(0, Game.MAPHEIGHT):
+                self.gameScreen.addstr(y, x, '.', curses.color_pair(3))
 
         # Decor
         for (y, x) in self.decorations:
             decoration = self.decorations[(y, x)]
-            self.screen.addstr(y, x, decoration.character, decoration.colour)
+            self.gameScreen.addstr(y, x, decoration.character, decoration.colour)
 
         # Fences
         for (y, x) in self.fences:
             fence = self.fences[(y, x)]
-            self.screen.addstr(y, x, fence.character, fence.colour)
+            self.gameScreen.addstr(y, x, fence.character, fence.colour)
 
         # Walls
-        for (y, x) in self.walls:
+        for (y, x) in self.walls:   
             wall = self.walls[(y, x)]
-            self.screen.addstr(y, x, wall.character, curses.color_pair(0))
+            self.gameScreen.addstr(y, x, wall.character, curses.color_pair(0))
 
         # Doors
         for (y, x) in self.doors:
             door = self.doors[(y, x)]
-            self.screen.addstr(y, x, door.character, curses.color_pair(1))
+            self.gameScreen.addstr(y, x, door.character, curses.color_pair(1))
 
         # Draw the entities like players, NPCs
         player = self.player
-        self.screen.addstr(player.y, player.x,
+        self.gameScreen.addstr(player.y, player.x,
                            player.character, curses.color_pair(1))
 
         # Status line printing
@@ -236,8 +243,15 @@ class Game:
         self.screen.addstr(Game.GAMEHEIGHT+1, 1, str(player.x) + " " + str(player.y))
 
         # Put the cursor on the player
-        self.screen.move(player.y, player.x)
-        self.screen.refresh()
+        self.screen.noutrefresh()
+        # Sort out the camera
+        cameraX = max(0, self.player.x - Game.GAMEWIDTH // 2)
+        cameraY = max(0, self.player.y - Game.GAMEHEIGHT // 2)
+
+        self.gameScreen.noutrefresh(cameraY, cameraX, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
+        #self.gameScreen.refresh(player.y, player.x, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
+#        self.screen.move(cameraY, cameraX)
+        curses.doupdate()
 
     def getKey(self):
         gotKey = False
@@ -423,7 +437,7 @@ class Town(object):
     def generateGrid(self):
         """Generate the grids + roads + houses"""
         for y in range(self.height):
-            squareY = y * (Town.GRID_SIZE + Town.ROAD_WIDTH) + self.y
+            squareY = y * (Town.GRID_SIZE + Town.ROAD_HEIGHT) + self.y
             for x in range(self.width):
                 squareX = x * (Town.GRID_SIZE + Town.ROAD_WIDTH) + self.x
                 # Make a square
@@ -715,18 +729,18 @@ class Player(object):
         # TODO: Or indeed, NPCs
 
         # Bounce them back if they've walked off the terminal!
-        if (self.x < Game.TOPLEFT[0]):
-            self.x = Game.TOPLEFT[0]
+        if (self.x < 0):
+            self.x = 0
             moved = False
-        elif (self.x >= Game.TOPLEFT[0] + Game.GAMEWIDTH):
-            self.x = Game.GAMEWIDTH
+        elif (self.x >= Game.MAPWIDTH):
+            self.x = Game.MAPWIDTH - 1
             moved = False
 
-        if (self.y < Game.TOPLEFT[1]):
-            self.y = Game.TOPLEFT[1]
+        if (self.y < 0):
+            self.y = 0
             moved = False
-        elif (self.y >= Game.TOPLEFT[1] + Game.GAMEHEIGHT):
-            self.y = Game.GAMEHEIGHT
+        elif (self.y >= Game.MAPHEIGHT):
+            self.y = Game.MAPHEIGHT - 1
             moved = False
 
         return moved
