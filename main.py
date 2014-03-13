@@ -56,6 +56,7 @@ class Game:
         self.doors = dict()
         self.decorations = dict()
         self.fences = dict()
+        self.npcs = []
         self.statusLine = ""
 
         # Random decoration
@@ -65,6 +66,9 @@ class Game:
 
         # Test town:
         town = Town(self, 0, 0, 9, 8)
+
+        # NPC test
+        self.npcs.append(NPC(self, 20, 20))
 
         # Testing house generation:
         # house = House(self)
@@ -231,6 +235,9 @@ class Game:
             self.gameScreen.addstr(y, x, door.character, curses.color_pair(1))
 
         # Draw the entities like players, NPCs
+        for npc in self.npcs:
+            self.gameScreen.addstr(npc.y, npc.x, npc.character, npc.colour)
+
         player = self.player
         self.gameScreen.addstr(player.y, player.x,
                            player.character, curses.color_pair(1))
@@ -624,6 +631,8 @@ class House(object):
         """Returns the total area required to place house."""
         return self.width * self.height
 
+#### PLAYER
+
 class Player(object):
     """The player object, containing data such as HP etc."""
     def __init__(self, game):
@@ -745,6 +754,18 @@ class Player(object):
 
         return moved
 
+##### NPCS
+
+class NPC(object):
+    """Super class for all NPCs"""
+    def __init__(self, game, y, x):
+        """Initialise the player object"""
+        self.x = x
+        self.y = y
+        self.character = '@'
+        self.game = game
+        self.colour = curses.color_pair(5)
+
 def main(stdscr):
     """Initialises the Game object and basically gets out of the way"""
     (ywidth, xwidth) = stdscr.getmaxyx()
@@ -754,6 +775,7 @@ def main(stdscr):
         return -1
     curses.init_pair(1, curses.COLOR_RED, curses.COLOR_BLACK)
     curses.init_pair(3, curses.COLOR_GREEN, curses.COLOR_BLACK)
+    curses.init_pair(5, curses.COLOR_BLUE, curses.COLOR_BLACK)
     win = curses.newwin(Game.YRES, Game.XRES)
     win.bkgd(' ', curses.color_pair(0))
     game = Game(win)
