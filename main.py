@@ -202,37 +202,51 @@ class Game:
             self.draw()
             self.handleInput()
 
+    def isInCamera(self, cameraY, cameraX, entityY, entityX):
+        """ Shouldn't be a class method. Determines if we should draw
+        a character or not."""
+        return entityY >= cameraY and entityY <= cameraY + Game.GAMEHEIGHT and entityX >= cameraX and entityX <= entityX + Game.GAMEWIDTH
+
     def draw(self):
-        """ Draw it all, filling in the blanks as necessary """
+        """ Draw it all, but only the stuff that would be on the screen"""
         # Wipe out the screen.
         self.screen.erase()
         self.gameScreen.erase()
+       
+        # Sort out the camera
+        cameraX = max(0, self.player.x - Game.GAMEWIDTH // 2)
+        cameraY = max(0, self.player.y - Game.GAMEHEIGHT // 2)
 
         # Draw the floors, walls, etc.
         # Floors first, then we'll override them
         for x in range(0, Game.MAPWIDTH):
             for y in range(0, Game.MAPHEIGHT):
-                self.gameScreen.addstr(y, x, '.', curses.color_pair(3))
+                if self.isInCamera(cameraY, cameraX, y, x):
+                    self.gameScreen.addstr(y, x, '.', curses.color_pair(3))
 
         # Decor
         for (y, x) in self.decorations:
             decoration = self.decorations[(y, x)]
-            self.gameScreen.addstr(y, x, decoration.character, decoration.colour)
+            if self.isInCamera(cameraY, cameraX, y, x):
+                self.gameScreen.addstr(y, x, decoration.character, decoration.colour)
 
         # Fences
         for (y, x) in self.fences:
             fence = self.fences[(y, x)]
-            self.gameScreen.addstr(y, x, fence.character, fence.colour)
-
+            if self.isInCamera(cameraY, cameraX, y, x):
+                self.gameScreen.addstr(y, x, fence.character, fence.colour)
+                            
         # Walls
         for (y, x) in self.walls:   
             wall = self.walls[(y, x)]
-            self.gameScreen.addstr(y, x, wall.character, curses.color_pair(0))
+            if self.isInCamera(cameraY, cameraX, y, x):
+                self.gameScreen.addstr(y, x, wall.character, curses.color_pair(0))
 
         # Doors
         for (y, x) in self.doors:
             door = self.doors[(y, x)]
-            self.gameScreen.addstr(y, x, door.character, curses.color_pair(1))
+            if self.isInCamera(cameraY, cameraX, y, x):
+                self.gameScreen.addstr(y, x, door.character, curses.color_pair(1))
 
         # Draw the entities like players, NPCs
         for npc in self.npcs:
@@ -240,24 +254,24 @@ class Game:
 
         player = self.player
         self.gameScreen.addstr(player.y, player.x,
-                           player.character, curses.color_pair(1))
+                               player.character, curses.color_pair(1))
 
         # Status line printing
         self.screen.addstr(0, 0, self.statusLine)
         self.statusLine = ""
 
-        # Debug stuff
+        # Debug and bottom status stuff
         self.screen.addstr(Game.GAMEHEIGHT+1, 1, str(player.x) + " " + str(player.y))
-
-        # Put the cursor on the player
         self.screen.noutrefresh()
-        # Sort out the camera
-        cameraX = max(0, self.player.x - Game.GAMEWIDTH // 2)
-        cameraY = max(0, self.player.y - Game.GAMEHEIGHT // 2)
 
         self.gameScreen.noutrefresh(cameraY, cameraX, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
         #self.gameScreen.refresh(player.y, player.x, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
-#        self.screen.move(cameraY, cameraX)
+
+        cursorX = min(Game.GAMEWIDTH // 2 + 1, player.x + 1)
+        cursorY = min(Game.GAMEHEIGHT // 2 + 1, player.y + 1)
+        self.screen.move(cursorY, cursorX)
+
+        # Blit the screen
         curses.doupdate()
 
     def getKey(self):
@@ -283,7 +297,7 @@ class Game:
         self.statusLine = status
         self.screen.addstr(0, 0, " " * 50)
         self.screen.addstr(0, 0, status)
-        self.screen.move(self.player.y, self.player.x)
+#        self.screen.move(self.player.y, self.player.x)
 
     def handleInput(self):
         """ Wait for the player to press a key, then handle
@@ -675,6 +689,10 @@ class Player(object):
             return True
         except:
             pass
+
+        for npc in self.game.npcs:
+            if (npc.y, npc.x) == (candidateY, candidateX):
+                return True
 
         return False
 
