@@ -1,5 +1,5 @@
 import curses;
-import time, platform, random;
+import time, platform, random, math;
 
 class Direction:
     """An enum for the possible movement directions"""
@@ -63,6 +63,9 @@ class Game:
         for _ in range(1000):
             (y, x) = (random.randint(1, Game.MAPHEIGHT - 1), random.randint(1, Game.MAPWIDTH - 1))
             self.decorations[(y, x)] = Decoration()
+
+        # Create tiles for visibility and FoV
+        self.tiles = []
 
         # Test town:
         town = Town(self, 0, 0, 9, 8)
@@ -262,6 +265,13 @@ class Game:
 
         # Debug and bottom status stuff
         self.screen.addstr(Game.GAMEHEIGHT+1, 1, str(player.x) + " " + str(player.y))
+
+        if self.npcs:
+            npc = self.npcs[0]
+            if npc.path:
+                path = npc.path[0]
+                self.screen.addstr(Game.GAMEHEIGHT+2, 1, str(path))
+
         self.screen.noutrefresh()
 
         self.gameScreen.noutrefresh(cameraY, cameraX, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
@@ -351,7 +361,9 @@ class Game:
                     actionTaken = False
 
     def logic(self):
-        pass
+        for npc in self.npcs:
+            npc.update()
+            
 
 class Grid(object):
     """The game grid itself."""
@@ -617,7 +629,7 @@ class House(object):
         # Floors..
         for (y1, x1) in self.decorations:
             self.game.decorations[(y+y1), (x+x1)] = self.decorations[y1, x1]
-
+    
         # Inner walls..
         for room in self.rooms:
             (yRoom, xRoom) = (room.y, room.x)
@@ -645,17 +657,13 @@ class House(object):
         """Returns the total area required to place house."""
         return self.width * self.height
 
-#### PLAYER
-
-class Player(object):
-    """The player object, containing data such as HP etc."""
+class Entity(object):
+    """The base entity object, for players and NPCs"""
     def __init__(self, game):
-        """Initialise the player object"""
         self.x = 20
         self.y = 20
         self.character = '@'
         self.game = game
-        self.colour = curses.COLOR_WHITE
 
     def checkObstruction(self, direction = None, steps = 1):
         # Don't let them walk through walls or closed doors
@@ -772,17 +780,119 @@ class Player(object):
 
         return moved
 
+
+#### PLAYER
+
+class Player(Entity):
+    """The player object, containing data such as HP etc."""
+    def __init__(self, game):
+        """Initialise the player object"""
+        super(Player, self).__init__(game)
+        self.colour = curses.COLOR_WHITE
+
+    def generateFov(self):
+        """Reveals grid squares if they've never been seen before,
+        shows the contents of squares if within FoV"""
+        # Reset the current FoV
+        for tile in self.game.tiles:
+            tile.visible = False
+
+
 ##### NPCS
 
-class NPC(object):
+class NPC(Entity):
     """Super class for all NPCs"""
     def __init__(self, game, y, x):
         """Initialise the player object"""
-        self.x = x
+        super(NPC, self).__init__(game)
         self.y = y
-        self.character = '@'
-        self.game = game
+        self.x = x
         self.colour = curses.color_pair(5)
+        self.path = []
+
+    def update(self):
+        # Move randomly, or sometimes actually pick a place to go and go there!
+        # Later, update to use Plans.
+        chance = random.randint(1, 30)
+        if self.path:
+            (self.y, self.x) = self.path[0]
+            self.path.pop(0)
+        else:
+            if chance == 25:
+                pass
+            else:
+                self.attemptMove(random.randint(1,4))
+
+    def findPath(self, targetY, targetX):
+        """A big ol' ripoff of the A* algorithm"""
+        def sld(y1, x1, y2, x2):
+            return math.sqrt(((y1-y2) ** 2) + ((x1-x2) ** 2))
+
+        def nextCurrent(openSet):
+            bestNode = (1,1)
+            bestScore = 9999
+            for node in openSet:
+                if f_score[node] < bestScore:
+                    bestNode = node
+                    bestScore = f_score[node]
+            return bestNode
+
+        def returnNeighbours(node, walls):
+            # Return a list of nodes that aren't walls basically
+            neighbours = []
+            for nX in [-1, 1]:
+                if (node[0], node[1] + nX) not in walls:
+                    neighbours.append((node[0], node[1] + nX))
+                if (node[0] + nX, node[1]) not in walls:
+                    neighbours.append((node[0] + nX, node[1]))
+            return neighbours
+            
+        def reconstructPath(current):
+            if current in came_from:
+                rest = reconstructPath(came_from[current])
+                rest.append(current)
+                return rest
+            else:
+                return [current,]
+
+        x = self.x
+        y = self.y
+        goal = (targetY, targetX)
+        closedSet = []
+        openSet = [(y,x)]
+        came_from = {}
+
+        g_score = {}
+        f_score = {}
+        g_score[(y,x)] = 0
+        f_score[(y,x)] = g_score[(y,x)] + sld(y, x, targetY, targetX)
+
+        count = 100000000
+
+        while openSet and count > 0:
+            count -= 1
+            current = nextCurrent(openSet)
+            if current == (targetY, targetX):
+                return reconstructPath(current)
+
+            openSet.remove(current)
+            closedSet.append(current)
+            for neighbour in returnNeighbours(current, self.game.walls):
+                if neighbour in closedSet:
+                    continue
+                tentative_g_score = g_score[current] + 1
+                nG_score = -1
+                try:
+                    nG_score = g_score[neighbour]
+                except:
+                    pass
+                if neighbour not in openSet or tentative_g_score < nG_score:
+                    came_from[neighbour] = current
+                    g_score[neighbour] = tentative_g_score
+                    f_score[neighbour] = g_score[neighbour] + sld(neighbour[0], neighbour[1], goal[0], goal[1])
+                    if neighbour not in openSet:
+                        openSet.append(neighbour)
+        return False
 
 def main(stdscr):
     """Initialises the Game object and basically gets out of the way"""
