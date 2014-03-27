@@ -282,14 +282,16 @@ class Game:
         self.screen.noutrefresh()
 
         self.gameScreen.noutrefresh(cameraY, cameraX, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
-        #self.gameScreen.refresh(player.y, player.x, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
 
-        cursorX = min(Game.GAMEWIDTH // 2 + 1, player.x + 1)
-        cursorY = min(Game.GAMEHEIGHT // 2 + 1, player.y + 1)
-        self.screen.move(cursorY, cursorX)
+        self.moveCursorToPlayer()
 
         # Blit the screen
         curses.doupdate()
+
+    def moveCursorToPlayer(self):
+        cursorX = min(Game.GAMEWIDTH // 2 + 1, self.player.x + 1)
+        cursorY = min(Game.GAMEHEIGHT // 2 + 1, self.player.y + 1)
+        self.screen.move(cursorY, cursorX)        
 
     def getKey(self):
         gotKey = False
@@ -314,7 +316,7 @@ class Game:
         self.statusLine = status
         self.screen.addstr(0, 0, " " * 50)
         self.screen.addstr(0, 0, status)
-#        self.screen.move(self.player.y, self.player.x)
+        self.moveCursorToPlayer()
 
     def handleInput(self):
         """ Wait for the player to press a key, then handle
@@ -378,13 +380,6 @@ class Tile(object):
     def __init__(self):
         self.visible = False
         self.seen = False
-
-class Grid(object):
-    """The game grid itself."""
-    def __init__(self, xDimension, yDimension):
-        """Initialises the game grid to X by Y tiles."""
-        self.xDimension = xDimension
-        self.yDimension = yDimension
 
 class Decoration(object):
     """Just a decorative tile."""
