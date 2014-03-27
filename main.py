@@ -65,13 +65,17 @@ class Game:
             self.decorations[(y, x)] = Decoration()
 
         # Create tiles for visibility and FoV
-        self.tiles = []
+        self.tiles = dict()
+        for x in range(Game.MAPWIDTH):
+            for y in range(Game.MAPHEIGHT):
+                self.tiles[(y,x)] = Tile()
 
         # Test town:
         town = Town(self, 0, 0, 9, 8)
 
         # NPC test
         self.npcs.append(NPC(self, 20, 20))
+        self.npcs.append(NPC(self, 21, 21))
 
         # Testing house generation:
         # house = House(self)
@@ -174,7 +178,7 @@ class Game:
             else:
                 wall.character = UpDown
 
-            # Yeah.. This just happened.
+            # Yeah.. This just happened. Next time consider bitstates
             if (wallUp and wallLeft):
                 wall.character = UpLeft
             if (wallUp and wallRight):
@@ -224,8 +228,11 @@ class Game:
         # Floors first, then we'll override them
         for x in range(0, Game.MAPWIDTH):
             for y in range(0, Game.MAPHEIGHT):
-                if self.isInCamera(cameraY, cameraX, y, x):
-                    self.gameScreen.addstr(y, x, '.', curses.color_pair(3))
+                if not self.tiles[(y,x)].visible or not self.isInCamera(cameraY, cameraX, y, x):
+                    continue
+
+                self.gameScreen.addstr(y, x, '.', curses.color_pair(3))
+
 
         # Decor
         for (y, x) in self.decorations:
@@ -238,7 +245,7 @@ class Game:
             fence = self.fences[(y, x)]
             if self.isInCamera(cameraY, cameraX, y, x):
                 self.gameScreen.addstr(y, x, fence.character, fence.colour)
-                            
+                
         # Walls
         for (y, x) in self.walls:   
             wall = self.walls[(y, x)]
@@ -364,6 +371,13 @@ class Game:
         for npc in self.npcs:
             npc.update()
             
+class Tile(object):
+    """Represents a tile in vision.
+    Once seen, a tile will show what is currently on it via the game draw method.
+    Once a tile goes out of view, everything that isn't a wall disappears during draw."""
+    def __init__(self):
+        self.visible = False
+        self.seen = False
 
 class Grid(object):
     """The game grid itself."""
@@ -527,7 +541,7 @@ class House(object):
         """Create the outer walls of the house"""
         self.width = random.randint(House.MINIMUM_WIDTH, maxWidth) - 1
         self.height = random.randint(House.MINIMUM_WIDTH, maxHeight) - 1
-        for x in range(self.width): # +1 to include the corners
+        for x in range(self.width):
             self.walls[(0, x)] = Wall()
             self.walls[(self.height, x)] = Wall()
             # Might as well do the floors too, while we're here
@@ -614,7 +628,10 @@ class House(object):
 
     def generateFrontDoor(self):
         """Create the front door"""
-        pass
+        doorX = random.randint(1,self.width-1)
+        if (self.height-1, doorX) is self.walls:
+            doorX += 1
+        self.doors[(self.height, doorX)] = Door(self.game, self.height, doorX)
 
     def generateDoors(self):
         """Make the doors for the house"""
@@ -649,7 +666,7 @@ class House(object):
                 wall = self.game.walls[(y + y1, x + x1)]
                 del self.game.walls[(y + y1, x + x1)]
             except:
-                # No door!
+                # No wall!
                 pass
             self.game.doors[(y1 + y, x1 + x)] = Door(self.game, y1 + y, x1 + x)
 
@@ -701,6 +718,9 @@ class Entity(object):
         for npc in self.game.npcs:
             if (npc.y, npc.x) == (candidateY, candidateX):
                 return True
+
+        if (self.game.player.y, self.game.player.x) == (candidateY, candidateX):
+            return True
 
         return False
 
@@ -819,20 +839,28 @@ class NPC(Entity):
             self.path.pop(0)
         else:
             if chance == 25:
-                pass
+                targetX = 0
+                targetY = 0
+                while True:
+                    targetX = random.randint(1, Game.MAPWIDTH)
+                    targetY = random.randint(1, Game.MAPHEIGHT)
+                    if (targetY, targetX) not in self.game.walls:
+                        break
+                self.path = self.findPath(targetY, targetX)
             else:
                 self.attemptMove(random.randint(1,4))
 
     def findPath(self, targetY, targetX):
         """A big ol' ripoff of the A* algorithm"""
         def sld(y1, x1, y2, x2):
-            return math.sqrt(((y1-y2) ** 2) + ((x1-x2) ** 2))
+            """Using Euclidean distance as the heuristic"""
+            return ((y1-y2) ** 2) + ((x1-x2) ** 2)
 
         def nextCurrent(openSet):
             bestNode = (1,1)
-            bestScore = 9999
+            bestScore = None
             for node in openSet:
-                if f_score[node] < bestScore:
+                if not bestScore or f_score[node] < bestScore:
                     bestNode = node
                     bestScore = f_score[node]
             return bestNode
