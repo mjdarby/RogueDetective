@@ -854,10 +854,8 @@ class NPC(Entity):
         def nextCurrent(openSet):
             bestNode = (1,1)
             bestScore = None
-            for node in openSet:
-                if not bestScore or f_score[node] < bestScore:
-                    bestNode = node
-                    bestScore = f_score[node]
+            nodeSet = { node: f_score[node] for node in openSet}
+            bestNode = min(nodeSet, key=nodeSet.get)
             return bestNode
 
         def returnNeighbours(node, walls):
