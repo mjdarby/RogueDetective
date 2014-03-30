@@ -77,11 +77,6 @@ class Game:
         self.npcs.append(NPC(self, 20, 20))
         self.npcs.append(NPC(self, 21, 21))
 
-        # Testing house generation:
-        # house = House(self)
-        # house.generateLayout()
-        # house.createHouse(1, 4)
-
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
         # This is one of the ugliest things I've ever written.
@@ -209,6 +204,7 @@ class Game:
             self.draw()
             self.handleInput()
 
+
     def isInCamera(self, cameraY, cameraX, entityY, entityX):
         """ Shouldn't be a class method. Determines if we should draw
         a character or not."""
@@ -233,34 +229,33 @@ class Game:
 
                 self.gameScreen.addstr(y, x, '.', curses.color_pair(3))
 
+                if (y, x) in self.decorations:
+                    decoration = self.decorations[(y, x)]
+                    self.gameScreen.addstr(y, x, decoration.character, decoration.colour)
 
-        # Decor
-        for (y, x) in self.decorations:
-            decoration = self.decorations[(y, x)]
-            if self.isInCamera(cameraY, cameraX, y, x):
-                self.gameScreen.addstr(y, x, decoration.character, decoration.colour)
+                # Fences
+                if (y, x) in self.fences:
+                    fence = self.fences[(y, x)]
+                    self.gameScreen.addstr(y, x, fence.character, fence.colour)
+                        
+                # Walls
+                if (y, x) in self.walls:   
+                    wall = self.walls[(y, x)]
+                    self.gameScreen.addstr(y, x, wall.character, curses.color_pair(0))
 
-        # Fences
-        for (y, x) in self.fences:
-            fence = self.fences[(y, x)]
-            if self.isInCamera(cameraY, cameraX, y, x):
-                self.gameScreen.addstr(y, x, fence.character, fence.colour)
-                
-        # Walls
-        for (y, x) in self.walls:   
-            wall = self.walls[(y, x)]
-            if self.isInCamera(cameraY, cameraX, y, x):
-                self.gameScreen.addstr(y, x, wall.character, curses.color_pair(0))
-
-        # Doors
-        for (y, x) in self.doors:
-            door = self.doors[(y, x)]
-            if self.isInCamera(cameraY, cameraX, y, x):
-                self.gameScreen.addstr(y, x, door.character, curses.color_pair(1))
+                # Doors
+                if (y, x) in self.doors:
+                    door = self.doors[(y, x)]
+                    self.gameScreen.addstr(y, x, door.character, curses.color_pair(1))
 
         # Draw the entities like players, NPCs
         for npc in self.npcs:
-            self.gameScreen.addstr(npc.y, npc.x, npc.character, npc.colour)
+            npcPos = (npc.y, npc.x)
+            if npcPos in self.tiles:
+                tile = self.tiles[npcPos]
+                if tile.visible:
+                    self.gameScreen.addstr(npc.y, npc.x, npc.character, npc.colour)
+
 
         player = self.player
         self.gameScreen.addstr(player.y, player.x,
@@ -372,6 +367,7 @@ class Game:
     def logic(self):
         for npc in self.npcs:
             npc.update()
+        self.player.generateFov()
             
 class Tile(object):
     """Represents a tile in vision.
@@ -810,9 +806,81 @@ class Player(Entity):
         shows the contents of squares if within FoV"""
         # Reset the current FoV
         for tile in self.game.tiles:
+            tile = self.game.tiles[tile]
             tile.visible = False
 
+        # Start the shadowcast for each octact
+        octants = 8 # This is constant naming gone mad.
+        for octant in range(octants):
+            self.shadowcast(self.y, self.x, 1, self.game.GAMEWIDTH, 1.0, 0.0, octant)
 
+    def shadowcast(self, oY, oX, startRow, rows, startSlope, endSlope, octant):
+        # Iterate across each row and column
+        for row in range(startRow, rows):
+            blocked = False
+            for column in range(row + 1):
+                # Now we need some octant specific maths to figure out which
+                # tile we're considering.
+
+                targetY = oY
+                targetX = oX
+                dX = dY = 0
+                offset = row - column
+                if octant == 0 or octant == 5:
+                    targetY += row
+                    targetX += -offset
+                    dY = 1
+                    dX = -1
+                elif octant == 1 or octant == 4:
+                    targetY += row
+                    targetX += offset
+                    dY = 1
+                    dX = 1
+                elif octant == 2 or octant == 7:
+                    targetY += -offset
+                    targetX += row
+                    dY = -1
+                    dX = -1
+                elif octant == 3 or octant == 6:
+                    targetY += offset
+                    targetX += row
+                    dY = 1
+                    dX = 1
+
+                # Some 'creative' corrections to avoid mucking about in the
+                # previous awful bunch of code
+                if octant == 4 or octant == 5:
+                    targetY -= 2 * row
+                    dY = -dY
+                elif octant == 6 or octant == 7:
+                    targetX -= 2 * row
+                    dX = -dX
+
+                # Determine if it's inside the cone we're considering.
+                leftSlope  = (((targetX + (0.5 * dX)) - oX) / ((targetY + (0.5 * dY)) - oY))
+                rightSlope = (((targetX - (0.5 * dX)) - oX) / ((targetY - (0.5 * dY)) - oY))
+                if octant == 2 or octant == 7 or octant == 3 or octant == 6:
+                    leftSlope  = (((targetY + (0.5 * dY)) - oY) / ((targetX + (0.5 * dX)) - oX))
+                    rightSlope = (((targetY - (0.5 * dY)) - oY) / ((targetX - (0.5 * dX)) - oX))
+
+                if abs(leftSlope) > startSlope or abs(rightSlope) < endSlope:
+                    continue
+
+                if (targetY, targetX) in self.game.tiles:
+                    tile = self.game.tiles[(targetY, targetX)]
+                    tile.visible = True
+                    tile.seen = True
+
+                    if (targetY, targetX) in self.game.walls or (targetY, targetX) in self.game.doors:
+                        # Start child scan if not previously blocked
+                        if not blocked:
+                            self.shadowcast(self.y, self.x, row+1, self.game.GAMEWIDTH - row, startSlope, abs(leftSlope), octant)
+                        blocked = True
+                    elif blocked: # If we were blocked, but aren't now..
+                        startSlope = abs(rightSlope)
+                        blocked = False
+            if blocked: # If the last block in the row scan was a blocker, we stop.
+                break
 ##### NPCS
 
 class NPC(Entity):
