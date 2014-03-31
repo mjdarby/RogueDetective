@@ -817,35 +817,47 @@ class Player(Entity):
     def shadowcast(self, oY, oX, startRow, rows, startSlope, endSlope, octant):
         # Iterate across each row and column
         for row in range(startRow, rows):
+            if startSlope < endSlope:
+                break
             blocked = False
             for column in range(row+1):
+                if startSlope <= endSlope:
+                    break
                 # Now we need some octant specific maths to figure out which
                 # tile we're considering.
 
                 targetY = oY
                 targetX = oX
-                dX = dY = 0
+                dLX = dRX = dLY = dRY = 0
                 offset = row - column 
                 if octant == 0 or octant == 5:
                     targetY += row
                     targetX += -offset
-                    dY = 1
-                    dX = -1
+                    dLY = 1
+                    dLX = -1
+                    dRY = -1
+                    dRX = 1
                 elif octant == 1 or octant == 4:
                     targetY += row
                     targetX += offset
-                    dY = 1
-                    dX = 1
+                    dLY = 1
+                    dLX = 1
+                    dRY = -1
+                    dRX = -1
                 elif octant == 2 or octant == 7:
                     targetY += -offset
                     targetX += row
-                    dY = -1
-                    dX = 1
+                    dLY = -1
+                    dLX = 1
+                    dRY = 1
+                    dRX = -1
                 elif octant == 3 or octant == 6:
                     targetY += offset
                     targetX += row
-                    dY = 1
-                    dX = 1
+                    dLY = 1
+                    dLX = 1
+                    dRY = -1
+                    dRX = -1
 
                 # Some 'creative' corrections to avoid mucking about in the
                 # previous awful bunch of code
@@ -854,19 +866,24 @@ class Player(Entity):
                 elif octant == 6 or octant == 7:
                     targetX -= 2 * row
                 elif octant == 5 or octant == 4:
-                    dY = -dY
+                    dRY = -dRY
+                    dLY = -dLY
                 elif octant == 2 or octant == 3:
-                    dX = -dX
-
+                    dRX = -dRX
+                    dLX = -dLX
+                    
                 # Determine if it's inside the cone we're considering.
-                leftSlope  = (((targetX + (0.5 * dX)) - oX) / ((targetY + (0.5 * dY)) - oY))
-                rightSlope = (((targetX - (0.5 * dX)) - oX) / ((targetY - (0.5 * dY)) - oY))
+                leftSlope  = (((targetX + (0.5 * dLX)) - oX) / ((targetY + (0.5 * dLY)) - oY))
+                rightSlope = (((targetX + (0.5 * dRX)) - oX) / ((targetY + (0.5 * dRY)) - oY))
                 if octant == 2 or octant == 7 or octant == 3 or octant == 6:
-                    leftSlope  = (((targetY + (0.5 * dY)) - oY) / ((targetX + (0.5 * dX)) - oX))
-                    rightSlope = (((targetY - (0.5 * dY)) - oY) / ((targetX - (0.5 * dX)) - oX))
+                #if octant == 1 or octant == 0 or octant == 4 or octant == 5:
+                    leftSlope  = (((targetY + (0.5 * dLY)) - oY) / ((targetX + (0.5 * dLX)) - oX))
+                    rightSlope = (((targetY + (0.5 * dRY)) - oY) / ((targetX + (0.5 * dRX)) - oX))
 
-                if abs(leftSlope) > startSlope or abs(rightSlope) < endSlope:
+                if startSlope < abs(rightSlope):
                     continue
+                elif endSlope > abs(leftSlope):
+                    break
 
                 if (targetY, targetX) in self.game.tiles:
                     tile = self.game.tiles[(targetY, targetX)]
