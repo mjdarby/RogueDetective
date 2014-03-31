@@ -463,7 +463,7 @@ class Town(object):
         baseX = widthIdx * (Town.GRID_SIZE + Town.ROAD_WIDTH)
         road = Decoration()
         road.character = '#'
-        road.colour = curses.color_pair(4)
+        road.colour = curses.color_pair(3)
         for roadX in range(Town.GRID_SIZE + Town.ROAD_WIDTH - 1):
             for width in range(Town.ROAD_WIDTH):
                 self.roads[(baseY + roadX, baseX + Town.GRID_SIZE + width)] = road
@@ -818,14 +818,14 @@ class Player(Entity):
         # Iterate across each row and column
         for row in range(startRow, rows):
             blocked = False
-            for column in range(row + 1):
+            for column in range(row+1):
                 # Now we need some octant specific maths to figure out which
                 # tile we're considering.
 
                 targetY = oY
                 targetX = oX
                 dX = dY = 0
-                offset = row - column
+                offset = row - column 
                 if octant == 0 or octant == 5:
                     targetY += row
                     targetX += -offset
@@ -840,7 +840,7 @@ class Player(Entity):
                     targetY += -offset
                     targetX += row
                     dY = -1
-                    dX = -1
+                    dX = 1
                 elif octant == 3 or octant == 6:
                     targetY += offset
                     targetX += row
@@ -849,11 +849,13 @@ class Player(Entity):
 
                 # Some 'creative' corrections to avoid mucking about in the
                 # previous awful bunch of code
-                if octant == 4 or octant == 5:
+                if octant == 1 or octant == 0:
                     targetY -= 2 * row
-                    dY = -dY
                 elif octant == 6 or octant == 7:
                     targetX -= 2 * row
+                elif octant == 5 or octant == 4:
+                    dY = -dY
+                elif octant == 2 or octant == 3:
                     dX = -dX
 
                 # Determine if it's inside the cone we're considering.
