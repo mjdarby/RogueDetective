@@ -820,6 +820,7 @@ class Player(Entity):
             if startSlope <= endSlope:
                 break
             blocked = False
+            lastRightSlope = 0
             for column in range(row+1):
                 if startSlope <= endSlope:
                     break
@@ -828,60 +829,50 @@ class Player(Entity):
 
                 targetY = oY
                 targetX = oX
-                dLX = dRX = dLY = dRY = 0
+                dX = dY = 0
                 offset = row - column 
                 if octant == 0 or octant == 5:
                     targetY += row
                     targetX += -offset
-                    dLY = 1
-                    dLX = -1
-                    dRY = -1
-                    dRX = 1
+                    dY = 1
+                    dX = -1
                 elif octant == 1 or octant == 4:
                     targetY += row
                     targetX += offset
-                    dLY = 1
-                    dLX = 1
-                    dRY = -1
-                    dRX = -1
+                    dY = 1
+                    dX = 1
                 elif octant == 2 or octant == 7:
                     targetY += offset
                     targetX += row
-                    dLY = 1
-                    dLX = 1
-                    dRY = -1
-                    dRX = -1
+                    dY = 1
+                    dX = 1
                 elif octant == 3 or octant == 6:
                     targetY += -offset
                     targetX += row
-                    dLY = -1
-                    dLX = 1
-                    dRY = 1
-                    dRX = -1
+                    dY = -1
+                    dX = 1
 
                 # Some 'creative' corrections to avoid mucking about in the
                 # previous awful bunch of code
                 if octant == 1 or octant == 0:
-                    targetY -= 2 * row
+                    targetY = oY - row
                 elif octant == 2 or octant == 3:
-                    targetX -= 2 * row
+                    targetX = oX - row
                 elif octant == 5 or octant == 4:
-                    dRY = -dRY
-                    dLY = -dLY
+                    dY = -dY
                 elif octant == 6 or octant == 7:
-                    dRX = -dRX
-                    dLX = -dLX
+                    dX = -dX
                     
                 # Determine if it's inside the cone we're considering.
-                leftSlope  = (((targetX + (0.5 * dLX)) - oX) / ((targetY + (0.5 * dLY)) - oY))
-                rightSlope = (((targetX + (0.5 * dRX)) - oX) / ((targetY + (0.5 * dRY)) - oY))
+                leftSlope  = (((targetX + (0.5 * dX)) - oX) / ((targetY + (0.5 * dY)) - oY))
+                rightSlope = (((targetX - (0.5 * dX)) - oX) / ((targetY - (0.5 * dY)) - oY))
                 if octant == 2 or octant == 7 or octant == 3 or octant == 6:
-                    leftSlope  = (((targetY + (0.5 * dLY)) - oY) / ((targetX + (0.5 * dLX)) - oX))
-                    rightSlope = (((targetY + (0.5 * dRY)) - oY) / ((targetX + (0.5 * dRX)) - oX))
+                    leftSlope  = (((targetY + (0.5 * dY)) - oY) / ((targetX + (0.5 * dX)) - oX))
+                    rightSlope = (((targetY - (0.5 * dY)) - oY) / ((targetX - (0.5 * dX)) - oX))
 
                 if startSlope < abs(rightSlope):
                     continue
-                elif endSlope > abs(leftSlope):
+                if endSlope > abs(leftSlope):
                     break
 
                 if (targetY, targetX) in self.game.tiles:
@@ -890,13 +881,17 @@ class Player(Entity):
                     tile.seen = True
 
                     doorAndDoorClosed = (targetY, targetX) in self.game.doors and self.game.doors[(targetY, targetX)].closed
+
                     if (targetY, targetX) in self.game.walls or doorAndDoorClosed:
                         # Start child scan if not previously blocked
                         if not blocked:
                             self.shadowcast(self.y, self.x, row+1, self.game.GAMEWIDTH - row, startSlope, abs(leftSlope), octant)
+                        lastRightSlope = rightSlope
                         blocked = True
                     elif blocked: # If we were blocked, but aren't now..
-                        startSlope = abs(rightSlope)
+                        # We could be clever and work out the slope and stuff.. But
+                        # why bother when we already have it from the last loop?
+                        startSlope = abs(lastRightSlope)
                         blocked = False
             if blocked: # If the last block in the row scan was a blocker, we stop.
                 break
