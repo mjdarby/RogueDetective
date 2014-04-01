@@ -817,7 +817,7 @@ class Player(Entity):
     def shadowcast(self, oY, oX, startRow, rows, startSlope, endSlope, octant):
         # Iterate across each row and column
         for row in range(startRow, rows):
-            if startSlope < endSlope:
+            if startSlope <= endSlope:
                 break
             blocked = False
             for column in range(row+1):
@@ -845,30 +845,30 @@ class Player(Entity):
                     dRY = -1
                     dRX = -1
                 elif octant == 2 or octant == 7:
-                    targetY += -offset
-                    targetX += row
-                    dLY = -1
-                    dLX = 1
-                    dRY = 1
-                    dRX = -1
-                elif octant == 3 or octant == 6:
                     targetY += offset
                     targetX += row
                     dLY = 1
                     dLX = 1
                     dRY = -1
                     dRX = -1
+                elif octant == 3 or octant == 6:
+                    targetY += -offset
+                    targetX += row
+                    dLY = -1
+                    dLX = 1
+                    dRY = 1
+                    dRX = -1
 
                 # Some 'creative' corrections to avoid mucking about in the
                 # previous awful bunch of code
                 if octant == 1 or octant == 0:
                     targetY -= 2 * row
-                elif octant == 6 or octant == 7:
+                elif octant == 2 or octant == 3:
                     targetX -= 2 * row
                 elif octant == 5 or octant == 4:
                     dRY = -dRY
                     dLY = -dLY
-                elif octant == 2 or octant == 3:
+                elif octant == 6 or octant == 7:
                     dRX = -dRX
                     dLX = -dLX
                     
@@ -876,7 +876,6 @@ class Player(Entity):
                 leftSlope  = (((targetX + (0.5 * dLX)) - oX) / ((targetY + (0.5 * dLY)) - oY))
                 rightSlope = (((targetX + (0.5 * dRX)) - oX) / ((targetY + (0.5 * dRY)) - oY))
                 if octant == 2 or octant == 7 or octant == 3 or octant == 6:
-                #if octant == 1 or octant == 0 or octant == 4 or octant == 5:
                     leftSlope  = (((targetY + (0.5 * dLY)) - oY) / ((targetX + (0.5 * dLX)) - oX))
                     rightSlope = (((targetY + (0.5 * dRY)) - oY) / ((targetX + (0.5 * dRX)) - oX))
 
@@ -890,7 +889,8 @@ class Player(Entity):
                     tile.visible = True
                     tile.seen = True
 
-                    if (targetY, targetX) in self.game.walls or (targetY, targetX) in self.game.doors:
+                    doorAndDoorClosed = (targetY, targetX) in self.game.doors and self.game.doors[(targetY, targetX)].closed
+                    if (targetY, targetX) in self.game.walls or doorAndDoorClosed:
                         # Start child scan if not previously blocked
                         if not blocked:
                             self.shadowcast(self.y, self.x, row+1, self.game.GAMEWIDTH - row, startSlope, abs(leftSlope), octant)
