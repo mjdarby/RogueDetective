@@ -815,6 +815,35 @@ class Player(Entity):
             self.shadowcast(self.y, self.x, 1, self.game.GAMEWIDTH, 1.0, 0.0, octant)
 
     def shadowcast(self, oY, oX, startRow, rows, startSlope, endSlope, octant):
+        # Set up the transformation values for the octant
+        dX = dY = 0
+        rowY = rowX = offsetY = offsetX = 1
+        if octant == 0 or octant == 5:
+            dY = 1
+            dX = -1
+            rowX = 0
+            offsetY = 0
+        elif octant == 1 or octant == 4:
+            dY = 1
+            dX = 1
+            rowX = 0
+            offsetY = 0
+        elif octant == 2 or octant == 7:
+            dY = 1
+            dX = 1
+            offsetX = 0
+            rowY = 0
+        elif octant == 3 or octant == 6:
+            dY = -1
+            dX = 1
+            offsetX = 0
+            rowY = 0
+
+        if octant == 5 or octant == 4:
+            dY = -dY
+        elif octant == 6 or octant == 7:
+            dX = -dX
+
         # Iterate across each row and column
         for row in range(startRow, rows):
             if startSlope <= endSlope:
@@ -822,46 +851,20 @@ class Player(Entity):
             blocked = False
             lastRightSlope = 0
             for column in range(row+1):
+                # Here, we do the hard bit: Finding the right
+                # tile that we're considering, deciding if it's
+                # in the current scan's FoV, starting child
+                # scans and adjusting the start slope.
+
                 if startSlope <= endSlope:
                     break
-                # Now we need some octant specific maths to figure out which
-                # tile we're considering.
 
+                # Find the target tile.
                 targetY = oY
                 targetX = oX
-                dX = dY = 0
                 offset = row - column 
-                if octant == 0 or octant == 5:
-                    targetY += row
-                    targetX += -offset
-                    dY = 1
-                    dX = -1
-                elif octant == 1 or octant == 4:
-                    targetY += row
-                    targetX += offset
-                    dY = 1
-                    dX = 1
-                elif octant == 2 or octant == 7:
-                    targetY += offset
-                    targetX += row
-                    dY = 1
-                    dX = 1
-                elif octant == 3 or octant == 6:
-                    targetY += -offset
-                    targetX += row
-                    dY = -1
-                    dX = 1
-
-                # Some 'creative' corrections to avoid mucking about in the
-                # previous awful bunch of code
-                if octant == 1 or octant == 0:
-                    targetY = oY - row
-                elif octant == 2 or octant == 3:
-                    targetX = oX - row
-                elif octant == 5 or octant == 4:
-                    dY = -dY
-                elif octant == 6 or octant == 7:
-                    dX = -dX
+                targetY -= dY * rowY * row - dY * offsetY * offset
+                targetX += dX * offsetX * offset - dX * rowX * row
                     
                 # Determine if it's inside the cone we're considering.
                 leftSlope  = (((targetX + (0.5 * dX)) - oX) / ((targetY + (0.5 * dY)) - oY))
@@ -870,28 +873,35 @@ class Player(Entity):
                     leftSlope  = (((targetY + (0.5 * dY)) - oY) / ((targetX + (0.5 * dX)) - oX))
                     rightSlope = (((targetY - (0.5 * dY)) - oY) / ((targetX - (0.5 * dX)) - oX))
 
-                if startSlope < abs(rightSlope):
+                leftSlope = abs(leftSlope)
+                rightSlope = abs(rightSlope)
+
+                if startSlope < rightSlope:
                     continue
-                if endSlope > abs(leftSlope):
+                if endSlope > leftSlope:
                     break
 
+                # Light up the tile if we got this far.
                 if (targetY, targetX) in self.game.tiles:
                     tile = self.game.tiles[(targetY, targetX)]
                     tile.visible = True
                     tile.seen = True
 
-                    doorAndDoorClosed = (targetY, targetX) in self.game.doors and self.game.doors[(targetY, targetX)].closed
+                    doorClosed = (targetY, targetX) in self.game.doors and \
+                                 self.game.doors[(targetY, targetX)].closed
 
-                    if (targetY, targetX) in self.game.walls or doorAndDoorClosed:
+                    if (targetY, targetX) in self.game.walls or doorClosed:
                         # Start child scan if not previously blocked
                         if not blocked:
-                            self.shadowcast(self.y, self.x, row+1, self.game.GAMEWIDTH - row, startSlope, abs(leftSlope), octant)
+                            self.shadowcast(self.y, self.x, row+1, \
+                                            self.game.GAMEWIDTH - row, \
+                                            startSlope, leftSlope, octant)
                         lastRightSlope = rightSlope
                         blocked = True
                     elif blocked: # If we were blocked, but aren't now..
                         # We could be clever and work out the slope and stuff.. But
                         # why bother when we already have it from the last loop?
-                        startSlope = abs(lastRightSlope)
+                        startSlope = lastRightSlope
                         blocked = False
             if blocked: # If the last block in the row scan was a blocker, we stop.
                 break
