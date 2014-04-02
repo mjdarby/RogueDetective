@@ -818,6 +818,7 @@ class Player(Entity):
         # Set up the transformation values for the octant
         dX = dY = 0
         rowY = rowX = offsetY = offsetX = 1
+        xSlope = True
         if octant == 0 or octant == 5:
             dY = 1
             dX = -1
@@ -833,11 +834,13 @@ class Player(Entity):
             dX = 1
             offsetX = 0
             rowY = 0
+            xSlope = False
         elif octant == 3 or octant == 6:
             dY = -1
             dX = 1
             offsetX = 0
             rowY = 0
+            xSlope = False
 
         if octant == 5 or octant == 4:
             dY = -dY
@@ -867,11 +870,13 @@ class Player(Entity):
                 targetX += dX * offsetX * offset - dX * rowX * row
                     
                 # Determine if it's inside the cone we're considering.
-                leftSlope  = (((targetX + (0.5 * dX)) - oX) / ((targetY + (0.5 * dY)) - oY))
-                rightSlope = (((targetX - (0.5 * dX)) - oX) / ((targetY - (0.5 * dY)) - oY))
-                if octant == 2 or octant == 7 or octant == 3 or octant == 6:
-                    leftSlope  = (((targetY + (0.5 * dY)) - oY) / ((targetX + (0.5 * dX)) - oX))
-                    rightSlope = (((targetY - (0.5 * dY)) - oY) / ((targetX - (0.5 * dX)) - oX))
+                leftSlope  = ((targetX + (0.5 * dX)) - oX) / \
+                             ((targetY + (0.5 * dY)) - oY)
+                rightSlope = ((targetX - (0.5 * dX)) - oX) / \
+                             ((targetY - (0.5 * dY)) - oY)
+                if not xSlope:
+                    leftSlope  = 1 / leftSlope
+                    rightSlope = 1 / rightSlope
 
                 leftSlope = abs(leftSlope)
                 rightSlope = abs(rightSlope)
