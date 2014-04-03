@@ -28,8 +28,8 @@ class Game:
     GAMEWIDTH = 78
     GAMEHEIGHT = 21
 
-    MAPWIDTH = 200
-    MAPHEIGHT = 200
+    MAPWIDTH = 68
+    MAPHEIGHT = 66
     SCREENWIDTH = 200
     SCREENHEIGHT = 201 # because of really dumb cursor bugs
 
@@ -60,6 +60,7 @@ class Game:
         self.decorations = dict()
         self.fences = dict()
         self.npcs = []
+        self.houses = []
         self.statusLine = ""
 
         # Random decoration
@@ -74,7 +75,7 @@ class Game:
                 self.tiles[(y,x)] = Tile()
 
         # Test town:
-        town = Town(self, 0, 0, 9, 8)
+        town = Town(self, 0, 0, 5, 5)
 
         # NPC test
         self.npcs.append(NPC(self, 20, 20))
@@ -221,7 +222,9 @@ class Game:
        
         # Sort out the camera
         cameraX = max(0, self.player.x - Game.GAMEWIDTH // 2)
+        cameraX = min(cameraX, Game.MAPWIDTH - Game.GAMEWIDTH)
         cameraY = max(0, self.player.y - Game.GAMEHEIGHT // 2)
+        cameraY = min(cameraY, Game.MAPHEIGHT - Game.GAMEHEIGHT)
         alwaysSeeWalls = False
 
         # Draw the floors, walls, etc.
@@ -509,6 +512,14 @@ class Town(object):
                 if (self.y + Town.GRID_SIZE - 1, x + self.x) not in self.game.walls \
                    and (self.y + Town.GRID_SIZE -1, x + self.x) not in self.game.doors:
                     self.game.fences[(self.y + Town.GRID_SIZE - 1, x + self.x)] = Fence()
+
+            # NPC owners! Woohoo!
+            self.game.npcs.append(NPC(self.game,
+                                 self.y + random.randint(0, house.width - 1), 
+                                 self.x + random.randint(0, xSpace)))
+
+            # Finally, add it to the list of houses
+            self.game.houses.append(self)
 
     def __init__(self, game, y, x, height, width):
         self.y = y
