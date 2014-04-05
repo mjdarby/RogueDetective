@@ -21,18 +21,32 @@ class InputActions:
 class Game:
     """The game logic itself. The loop and input handling are here."""
 
+    # The window resolution
     XRES = 80
     YRES = 24
 
-    TOPLEFT = (1, 1)
+    # The offset of the game screen itself
+    # Status messages appear on the first line,
+    # so we currently offset by 1 y-line
+    TOPLEFT = (1, 0)
+
+    # Game width/height: The size of the visible map at any one time
     GAMEWIDTH = 78
     GAMEHEIGHT = 21
 
-    MAPWIDTH = 68
+    # Map width/height: The complete size of the map
+    # NB. Must be greater than or equal to the game width/height
+    # May remove this restriction later on, but right now breaking it
+    # messed with the cursor logic.
+    MAPWIDTH = 78
     MAPHEIGHT = 66
-    SCREENWIDTH = 200
-    SCREENHEIGHT = 201 # because of really dumb cursor bugs
 
+    # Screen width/height: Size of the curses pad. +1 height because
+    # of a crazy off-the-screen cursor bug
+    SCREENWIDTH = MAPWIDTH
+    SCREENHEIGHT = MAPHEIGHT + 1
+
+    # Map of keyboard key to action
     KEYMAP = dict()
     KEYMAP[ord('h')] = InputActions.MOVE_LEFT
     KEYMAP[ord('j')] = InputActions.MOVE_DOWN
@@ -75,11 +89,7 @@ class Game:
                 self.tiles[(y,x)] = Tile()
 
         # Test town:
-        town = Town(self, 0, 0, 5, 5)
-
-        # NPC test
-        self.npcs.append(NPC(self, 20, 20))
-        self.npcs.append(NPC(self, 21, 21))
+        town = Town(self, 0, 0, 3, 3)
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -294,11 +304,27 @@ class Game:
         curses.doupdate()
 
     def moveCursorToPlayer(self):
+        """Moves the cursor to the player. Duh."""
+        # Make sure the cursor follows the players y/x co-ord
+        # when he's near the minimum values of each
         cursorX = min(Game.GAMEWIDTH // 2 + 1, self.player.x + 1)
         cursorY = min(Game.GAMEHEIGHT // 2 + 1, self.player.y + 1)
-        self.screen.move(cursorY, cursorX)        
+
+        # Make sure the cursor follows the players y/x co-ord +
+        # the max camera range when he's near the maximum values
+        # of each
+        maxCameraX = Game.MAPWIDTH - Game.GAMEWIDTH // 2 - 1
+        maxCameraY = Game.MAPHEIGHT - Game.GAMEHEIGHT // 2  - 1
+        if self.player.x > maxCameraX:
+            offset = (self.player.x - maxCameraX) + Game.GAMEWIDTH // 2
+            cursorX = offset
+        if self.player.y > maxCameraY:
+            offset = self.player.y - maxCameraY + Game.GAMEHEIGHT // 2 + 1
+            cursorY = offset
+        self.screen.move(cursorY, cursorX)
 
     def getKey(self):
+        """Utility funciton that waits until a valid input has been entered."""
         gotKey = False
         while not gotKey:
             try:
@@ -308,6 +334,7 @@ class Game:
                 pass
 
     def getYesNo(self):
+        """Utility function for getting 'yes/no' responses."""
         gotYesNo = False
         key = None
         while not gotYesNo:
@@ -317,13 +344,14 @@ class Game:
         return key is ord('y')
 
     def printStatus(self, status, wait=False):
-        """Prints the status line, sets it too so it doesn't get wiped until next frame"""
+        """Prints the status line. Also sets it so it doesn't get wiped until next frame"""
         self.statusLine = status
         self.screen.addstr(0, 0, " " * 50)
         self.screen.addstr(0, 0, status)
         self.moveCursorToPlayer()
 
     def kickDoor(self):
+        """Prompts for direction and attempts to kick down the door there if present."""
         actionTaken = True
         self.printStatus("Which direction?")
         direction = self.screen.getch()
@@ -415,6 +443,7 @@ class Game:
                 actionTaken = self.kickDoor()
 
     def logic(self):
+        """Run all the assorted logic for all entities"""
         for npc in self.npcs:
             npc.update()
         self.player.generateFov()
@@ -484,6 +513,7 @@ class Town(object):
     ROAD_HEIGHT = 2
 
     class Square(object):
+        """A plot of land owned by an NPC. Contains a house."""
         def __init__(self, game, y, x, heightIdx, widthIdx):
             self.y = y
             self.x = x
@@ -492,6 +522,7 @@ class Town(object):
             self.widthIdx = widthIdx
 
         def generateHouse(self):
+            """Actually builds the house and fences, creates the NPC owner."""
             # Generate the building
             house = House(self.game)
             house.generateLayout(Town.GRID_SIZE, Town.GRID_SIZE)
@@ -513,10 +544,12 @@ class Town(object):
                    and (self.y + Town.GRID_SIZE -1, x + self.x) not in self.game.doors:
                     self.game.fences[(self.y + Town.GRID_SIZE - 1, x + self.x)] = Fence()
 
-            # NPC owners! Woohoo!
-            self.game.npcs.append(NPC(self.game,
-                                 self.y + random.randint(0, house.width - 1), 
-                                 self.x + random.randint(0, xSpace)))
+            # NPC owners! Woohoo! Spawn them inside the house
+            newNpc = NPC(self.game,
+                         self.y + yOffset + random.randint(1, house.height - 2), 
+                         self.x + xOffset + random.randint(1, house.width - 2))
+            newNpc.house = self
+            self.game.npcs.append(newNpc)
 
             # Finally, add it to the list of houses
             self.game.houses.append(self)
@@ -760,6 +793,7 @@ class Entity(object):
         self.game = game
 
     def checkObstruction(self, direction = None, steps = 1):
+        """Returns true if moving in the given direction isn't allowed"""
         # Don't let them walk through walls or closed doors
         (candidateY, candidateX) = (self.y, self.x)
         if direction == Direction.UP:
@@ -823,6 +857,7 @@ class Entity(object):
         return False
 
     def move(self, direction, steps=1):
+        """Actually move the entity"""
         if direction == Direction.UP:
             self.y -= steps
         elif direction == Direction.DOWN:
@@ -833,7 +868,7 @@ class Entity(object):
             self.x += steps
 
     def attemptMove(self, direction):
-        """Move the entity one unit in the specified direction"""
+        """Move the entity one unit in the specified direction, if allowed"""
         moved = True
 
         # Don't move if bumping in to a wall, door, fence..
@@ -900,6 +935,7 @@ class Player(Entity):
             self.shadowcast(self.y, self.x, 1, self.game.GAMEWIDTH, 1.0, 0.0, octant)
 
     def shadowcast(self, oY, oX, startRow, rows, startSlope, endSlope, octant):
+        """Calculates the FOV for one octant of the shadowcasting algorithm"""
         # Set up the transformation values for the octant
         dX = dY = 0
         rowY = rowX = offsetY = offsetX = 1
@@ -1006,26 +1042,16 @@ class NPC(Entity):
         self.x = x
         self.colour = curses.color_pair(0)
         self.path = []
+        self.house = None
 
     def update(self):
         # Move randomly, or sometimes actually pick a place to go and go there!
         # Later, update to use Plans.
-        chance = random.randint(1, 30)
         if self.path:
             (self.y, self.x) = self.path[0]
             self.path.pop(0)
         else:
-            if chance == 25:
-                targetX = 0
-                targetY = 0
-                while True:
-                    targetX = random.randint(1, Game.MAPWIDTH)
-                    targetY = random.randint(1, Game.MAPHEIGHT)
-                    if (targetY, targetX) not in self.game.walls:
-                        break
-                self.path = self.findPath(targetY, targetX)
-            else:
-                self.attemptMove(random.randint(1,4))
+            self.attemptMove(random.randint(1,5))
 
     def findPath(self, targetY, targetX):
         """A big ol' ripoff of the A* algorithm"""
