@@ -375,7 +375,7 @@ class Game:
                         self.printStatus("It's open, champ.")
                     elif success:
                         door.locked= False
-                        door.open()
+                        door.playerOpen()
                         self.printStatus("The door slams open!")
                     else:
                         self.printStatus("The door holds fast.")
@@ -429,7 +429,7 @@ class Game:
                     if playerPos != [self.player.y, self.player.x]:
                         try:
                             door = self.doors[tuple(playerPos)]
-                            door.open()
+                            door.playerOpen()
                         except:
                             self.printStatus("No door there!")
                             actionTaken = False
@@ -446,6 +446,8 @@ class Game:
         """Run all the assorted logic for all entities"""
         for npc in self.npcs:
             npc.update()
+        for door in self.doors:
+            self.doors[door].update()
         self.player.generateFov()
             
 class Tile(object):
@@ -478,18 +480,39 @@ class Door(object):
         self.locked = False
         self.colour = curses.COLOR_RED
         self.game = game
+        self.timer = -1
 
-    def open(self):
+    def update(self):
+        if self.timer == 0:
+            # Close the door if it's open.
+            if not self.closed:
+                self.open() # This function could be named better
+        
+        if self.timer >= 0:
+            self.timer -= 1
+
+    def npcOpen(self): # NPCs share all their house keys, okay?
+        self.open()
+
+    def playerOpen(self):
         """Open the door such that it doesn't blend with the walls
         Don't let them open it if it's locked"""
-        if self.locked:
+
+        # To prevent the player from being locked in a house, we let him exit
+        # if he's inside it. We know he's inside if he's above the door.
+        playerInside = (self.game.player.y + 1, self.game.player.x) == (self.y, self.x)
+        if not playerInside and self.locked:
             self.game.printStatus("The door is locked.")
             return
         # Reset status line
         self.game.printStatus("")
+        self.open()
+
+    def open(self):
         self.closed = not self.closed
         self.character = '+' if self.closed else '-'
         if not self.closed:
+            self.timer = 10
             try:
                 self.game.walls[(self.y, self.x-1)] # Ridiculous test for wall on the left
                 self.character = '|'
@@ -1048,9 +1071,37 @@ class NPC(Entity):
         # Move randomly, or sometimes actually pick a place to go and go there!
         # Later, update to use Plans.
         if self.path:
-            (self.y, self.x) = self.path[0]
-            self.path.pop(0)
+            (nextY, nextX) = self.path[0]
+            # The algorithm will have avoided walls and fences,
+            # so the only obstructions will be the player, doors and NPCs
+            blockedByEntity = False
+            blockedByDoor = False
+            # Check for player..
+            if (self.game.player.y, self.game.player.y) == (nextY, nextX):
+                blockedByEntity = True
+            # Check for NPC..
+            for npc in self.game.npcs:
+                if (npc.y, npc.x) == (nextY, nextX):
+                    blockedByEntity = True
+            # Check for Door..
+            if (nextY, nextX) in self.game.doors:
+                door = self.game.doors[(nextY, nextX)]
+                if door.closed:
+                    blockedByDoor = True
+                    door.npcOpen()
+            if not blockedByEntity and not blockedByDoor:
+                (self.y, self.x) = (nextY, nextX)
+                self.path.pop(0)
         else:
+            randnum = random.randint(1, 30)
+            if randnum == 25:
+                targetX = targetY = 0
+                while True:
+                    targetX = random.randint(1, Game.MAPWIDTH)
+                    targetY = random.randint(1, Game.MAPHEIGHT)
+                    if (targetY, targetX) not in self.game.walls:
+                        break
+                self.path = self.findPath(targetY, targetX)
             self.attemptMove(random.randint(1,5))
 
     def findPath(self, targetY, targetX):
