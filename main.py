@@ -40,7 +40,7 @@ class Game:
     # May remove this restriction later on, but right now breaking it
     # messed with the cursor logic.
     MAPWIDTH = 78
-    MAPHEIGHT = 66
+    MAPHEIGHT = 75
 
     # Screen width/height: Size of the curses pad. +1 height because
     # of a crazy off-the-screen cursor bug
@@ -101,7 +101,7 @@ class Game:
 
         ### The actual game creation logic
         # Random decoration
-        for _ in range(1000):
+        for _ in range(500):
             (y, x) = (random.randint(1, Game.MAPHEIGHT - 1), random.randint(1, Game.MAPWIDTH - 1))
             self.decorations[(y, x)] = Decoration()
 
@@ -112,7 +112,7 @@ class Game:
                 self.tiles[(y,x)] = Tile()
 
         # Test town:
-        self.town = Town(self, 0, 0, 3, 3)
+        self.town = Town(self, 5, 5, 3, 3)
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -857,8 +857,8 @@ class House(object):
 class Entity(object):
     """The base entity object, for players and NPCs"""
     def __init__(self, game):
-        self.x = 20
-        self.y = 20
+        self.x = 0
+        self.y = 0
         self.character = '@'
         self.game = game
 
@@ -1241,6 +1241,43 @@ class NPC(Entity):
                     if neighbour not in openSet:
                         openSet.append(neighbour)
         return False
+
+class Plan(object):
+    """Describes an NPC's schedule throughout the game day"""
+    class PlanEntry(object):
+        """Individual entry in the NPC plan, superclass for
+        other entries. Override action function to provide actual
+        logic"""
+        def __init__(self, npc):
+            super(PlanEntry, self).__init__(self)
+            self.shouldReschedule = False
+            self.rescheduleTime = (0, 0) # In (hours, minutes) from the
+                                         # time of rescheduling
+        def action(self):
+            True
+
+    def __init__(self, npc):
+        super(Plan, self).__init__(self)
+        self.npc = npc
+        self.planEntries = dict() # (hour, minute) -> PlanEntry
+
+    def checkForAndExecutePlan(self):
+        hour = self.npc.game.hour
+        minute = self.npc.game.minute
+        if (hour, minute) in self.planEntries:
+            planEntry = self.planEntries[(hour, minute)]
+            actionSuccessful = planEntry.action()
+            if (not actionSuccessful) and planEntry.shouldReschedule:
+                # Should write helper functions for adding times,
+                # but for now..
+                (newHour, newMinute) = (hour + planEntry.rescheduleTime[0],
+                                        minute + planEntry.rescheduleTime[1])
+                while newMinute >= 60:
+                    newHour += 1
+                    newMinute -= 60
+                while newHour >= 24:
+                    newHour -= 24
+                self.planEntries[(newHour, newMinute)] = planEntry
 
 def main(stdscr):
     """Initialises the Game object and basically gets out of the way"""
