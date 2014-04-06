@@ -17,6 +17,7 @@ class InputActions:
     OPEN_DOOR = 5
     QUIT = 6
     KICK_DOOR = 7
+    WAIT = 8
 
 class Game:
     """The game logic itself. The loop and input handling are here."""
@@ -49,6 +50,7 @@ class Game:
     # Other constants (debugging, etc)
     PATHFINDING_DEBUG = False
     DOORCLOSETIME = 10
+    TURNSBETWEENMINUTES = 3
 
     # Map of keyboard key to action
     KEYMAP = dict()
@@ -67,11 +69,16 @@ class Game:
     KEYMAP[ord('K')] = InputActions.KICK_DOOR
     KEYMAP[ord('q')] = InputActions.QUIT
 
+    KEYMAP[ord('.')] = InputActions.WAIT
+
     def __init__(self, screen):
         """Create the screen, player, assets."""
+        # Some technical items, first
         self.screen = screen
         self.gameScreen = curses.newpad(Game.SCREENHEIGHT, Game.SCREENWIDTH)
         self.running = True
+
+        # Collections of various objects
         self.player = Player(self)
         self.walls = dict()
         self.doors = dict()
@@ -79,8 +86,20 @@ class Game:
         self.fences = dict()
         self.npcs = []
         self.squares = []
+
+        # The current contents of the status line
+        # TODO: Maybe rename this
         self.statusLine = ""
 
+        # The bottom line contains the clock and other stuff
+        self.bottomLine = ""
+
+        # The current time and time-related variables
+        self.hour = 7
+        self.minute = 59
+        self.turnsToNextMinute = 0
+
+        ### The actual game creation logic
         # Random decoration
         for _ in range(1000):
             (y, x) = (random.randint(1, Game.MAPHEIGHT - 1), random.randint(1, Game.MAPWIDTH - 1))
@@ -233,7 +252,7 @@ class Game:
         # Wipe out the screen.
         self.screen.erase()
         self.gameScreen.erase()
-       
+
         # Sort out the camera
         cameraX = max(0, self.player.x - Game.GAMEWIDTH // 2)
         cameraX = min(cameraX, Game.MAPWIDTH - Game.GAMEWIDTH)
@@ -254,12 +273,12 @@ class Game:
                     if (y, x) in self.decorations:
                         decoration = self.decorations[(y, x)]
                         self.gameScreen.addstr(y, x, decoration.character, decoration.colour)
-                        
+
                     # Fences
                     if (y, x) in self.fences:
                         fence = self.fences[(y, x)]
                         self.gameScreen.addstr(y, x, fence.character, fence.colour)
-                        
+
                     # Doors
                     if (y, x) in self.doors:
                         door = self.doors[(y, x)]
@@ -290,7 +309,7 @@ class Game:
         self.statusLine = ""
 
         # Debug and bottom status stuff
-        self.screen.addstr(Game.GAMEHEIGHT+1, 1, str(player.x) + " " + str(player.y))
+        self.screen.addstr(Game.GAMEHEIGHT +1, 0, self.bottomLine)
 
         if self.npcs:
             npc = self.npcs[0]
@@ -371,7 +390,7 @@ class Game:
                 playerPos[0] -= 1
             elif direction == InputActions.MOVE_RIGHT:
                 playerPos[1] += 1
-                
+
             if playerPos != [self.player.y, self.player.x]:
                 try:
                     door = self.doors[tuple(playerPos)]
@@ -445,15 +464,33 @@ class Game:
                     actionTaken = False
             elif key == InputActions.KICK_DOOR:
                 actionTaken = self.kickDoor()
+            elif key == InputActions.WAIT:
+                actionTaken = True # Do nothing.
 
     def logic(self):
-        """Run all the assorted logic for all entities"""
+        """Run all the assorted logic for all entities and advance the clock"""
+        if self.turnsToNextMinute <= 0:
+            self.minute += 1
+            if self.minute == 60:
+                self.minute = 0
+                self.hour += 1
+                if self.hour == 24:
+                    self.hour = 0
+            self.turnsToNextMinute = Game.TURNSBETWEENMINUTES
+        else:
+            self.turnsToNextMinute -= 1
+
         for npc in self.npcs:
             npc.update()
         for door in self.doors:
             self.doors[door].update()
         self.player.generateFov()
-            
+
+        # Update the bottom line
+        self.bottomLine = "(" + str(self.player.x) + ", " + str(self.player.y) + ")"
+        time = str(self.hour).zfill(2) + ":" + str(self.minute).zfill(2)
+        self.bottomLine += " " + time
+
 class Tile(object):
     """Represents a tile in vision.
     Once seen, a tile will show what is currently on it via the game draw method.
@@ -491,7 +528,7 @@ class Door(object):
             # Close the door if it's open.
             if not self.closed:
                 self.open() # This function could be named better
-        
+
         if self.timer >= 0:
             self.timer -= 1
 
@@ -579,7 +616,7 @@ class Town(object):
 
             # NPC owners! Woohoo! Spawn them inside the house
             newNpc = NPC(self.game,
-                         self.y + yOffset + random.randint(1, house.height - 2), 
+                         self.y + yOffset + random.randint(1, house.height - 2),
                          self.x + xOffset + random.randint(1, house.width - 2))
             newNpc.square = self
             self.game.npcs.append(newNpc)
@@ -699,7 +736,7 @@ class House(object):
     def generateFirstPartition(self):
         # Make the initial rooms via the first partition
         widthwisePartition = bool(random.getrandbits(1))
-        cut = random.randint(House.MINIMUM_ROOM_DIMENSION, 
+        cut = random.randint(House.MINIMUM_ROOM_DIMENSION,
                             (self.height if widthwisePartition else self.width) - House.MINIMUM_ROOM_DIMENSION)
         if widthwisePartition:
             room = House.Room(0, 0, cut, self.width)
@@ -743,7 +780,7 @@ class House(object):
                 widthwisePartition = bool(random.getrandbits(1))
                 attempts -= 1
 
-            cut = random.randint(House.MINIMUM_ROOM_DIMENSION, 
+            cut = random.randint(House.MINIMUM_ROOM_DIMENSION,
                                  (baseRoom.height if widthwisePartition else baseRoom.width) - House.MINIMUM_ROOM_DIMENSION)
 
             # Create the two rooms annd put a door in connecting the two new rooms
@@ -786,7 +823,7 @@ class House(object):
         # Floors..
         for (y1, x1) in self.decorations:
             self.game.decorations[(y+y1), (x+x1)] = self.decorations[y1, x1]
-    
+
         # Inner walls..
         for room in self.rooms:
             (yRoom, xRoom) = (room.y, room.x)
@@ -1019,10 +1056,10 @@ class Player(Entity):
                 # Find the target tile.
                 targetY = oY
                 targetX = oX
-                offset = row - column 
+                offset = row - column
                 targetY -= dY * rowY * row - dY * offsetY * offset
                 targetX += dX * offsetX * offset - dX * rowX * row
-                    
+
                 # Determine if it's inside the cone we're considering.
                 leftSlope  = ((targetX + (0.5 * dX)) - oX) / \
                              ((targetY + (0.5 * dY)) - oY)
@@ -1157,7 +1194,7 @@ class NPC(Entity):
                 if not spaceObstructed(node[0] + nX, node[1], game):
                     neighbours.append((node[0] + nX, node[1]))
             return neighbours
-            
+
         def reconstructPath(current):
             if current in came_from:
                 rest = reconstructPath(came_from[current])
