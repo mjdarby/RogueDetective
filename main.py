@@ -46,6 +46,10 @@ class Game:
     SCREENWIDTH = MAPWIDTH
     SCREENHEIGHT = MAPHEIGHT + 1
 
+    # Other constants (debugging, etc)
+    PATHFINDING_DEBUG = False
+    DOORCLOSETIME = 10
+
     # Map of keyboard key to action
     KEYMAP = dict()
     KEYMAP[ord('h')] = InputActions.MOVE_LEFT
@@ -74,7 +78,7 @@ class Game:
         self.decorations = dict()
         self.fences = dict()
         self.npcs = []
-        self.houses = []
+        self.squares = []
         self.statusLine = ""
 
         # Random decoration
@@ -89,7 +93,7 @@ class Game:
                 self.tiles[(y,x)] = Tile()
 
         # Test town:
-        town = Town(self, 0, 0, 3, 3)
+        self.town = Town(self, 0, 0, 3, 3)
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -512,7 +516,7 @@ class Door(object):
         self.closed = not self.closed
         self.character = '+' if self.closed else '-'
         if not self.closed:
-            self.timer = 10
+            self.timer = self.game.DOORCLOSETIME
             try:
                 self.game.walls[(self.y, self.x-1)] # Ridiculous test for wall on the left
                 self.character = '|'
@@ -543,16 +547,22 @@ class Town(object):
             self.game = game
             self.heightIdx = heightIdx
             self.widthIdx = widthIdx
+            self.house = None
+            self.houseYOffset = 0
+            self.houseXOffset = 0
 
         def generateHouse(self):
             """Actually builds the house and fences, creates the NPC owner."""
             # Generate the building
             house = House(self.game)
+            self.house = house
             house.generateLayout(Town.GRID_SIZE, Town.GRID_SIZE)
             yOffset = Town.GRID_SIZE - house.height - 1
             xSpace = Town.GRID_SIZE - house.width - 1
             xOffset = random.randint(0, xSpace)
             house.createHouse(self.y + yOffset, self.x + xOffset)
+            self.houseYOffset = yOffset
+            self.houseXOffset = xOffset
 
             # Generate the fences
             for y in range(Town.GRID_SIZE):
@@ -571,11 +581,11 @@ class Town(object):
             newNpc = NPC(self.game,
                          self.y + yOffset + random.randint(1, house.height - 2), 
                          self.x + xOffset + random.randint(1, house.width - 2))
-            newNpc.house = self
+            newNpc.square = self
             self.game.npcs.append(newNpc)
 
             # Finally, add it to the list of houses
-            self.game.houses.append(self)
+            self.game.squares.append(self)
 
     def __init__(self, game, y, x, height, width):
         self.y = y
@@ -1065,7 +1075,21 @@ class NPC(Entity):
         self.x = x
         self.colour = curses.color_pair(0)
         self.path = []
-        self.house = None
+        self.square = None
+
+        # Emotions and states
+        self.scared = False
+        self.answeringDoor = False
+
+    def isAtHome(self):
+        # If we need to know that the NPC is at home, regardless of their
+        # plan
+        if self.square:
+            isInX = (self.x > self.square.xOffset and
+                     self.x < self.square.xOffset + self.square.house.width)
+            isInY = (self.y > self.square.yOffset and
+                     self.y < self.square.yOffset + self.square.house.height)
+            return isInX and isInY
 
     def update(self):
         # Move randomly, or sometimes actually pick a place to go and go there!
@@ -1093,15 +1117,16 @@ class NPC(Entity):
                 (self.y, self.x) = (nextY, nextX)
                 self.path.pop(0)
         else:
-            randnum = random.randint(1, 30)
-            if randnum == 25:
-                targetX = targetY = 0
-                while True:
-                    targetX = random.randint(1, Game.MAPWIDTH)
-                    targetY = random.randint(1, Game.MAPHEIGHT)
-                    if (targetY, targetX) not in self.game.walls:
-                        break
-                self.path = self.findPath(targetY, targetX)
+            if Game.PATHFINDING_DEBUG:
+                randnum = random.randint(1, 30)
+                if randnum == 25:
+                    targetX = targetY = 0
+                    while True:
+                        targetX = random.randint(1, Game.MAPWIDTH)
+                        targetY = random.randint(1, Game.MAPHEIGHT)
+                        if (targetY, targetX) not in self.game.walls:
+                            break
+                    self.path = self.findPath(targetY, targetX)
             self.attemptMove(random.randint(1,5))
 
     def findPath(self, targetY, targetX):
