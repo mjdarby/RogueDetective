@@ -114,6 +114,12 @@ class Game:
         # Test town:
         self.town = Town(self, 5, 5, 3, 3)
 
+        # Plan test!
+        for npc in self.npcs:
+            randomSquareIndex = random.randint(0, len(self.squares) - 1)
+            visitNeighbour = Plan.VisitNeighbour(npc, randomSquareIndex)
+            npc.plan.addPlanEntry(8, 5, visitNeighbour)
+
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
         # This is one of the ugliest things I've ever written.
@@ -619,9 +625,10 @@ class Town(object):
                          self.y + yOffset + random.randint(1, house.height - 2),
                          self.x + xOffset + random.randint(1, house.width - 2))
             newNpc.square = self
+            
             self.game.npcs.append(newNpc)
 
-            # Finally, add it to the list of houses
+        # Finally, add it to the list of squares
             self.game.squares.append(self)
 
     def __init__(self, game, y, x, height, width):
@@ -701,6 +708,7 @@ class House(object):
         self.walls = dict()
         self.decorations = dict()
         self.doors = dict()
+        self.frontDoorPos = (0, 0)
         self.game = game
 
     def generateLayout(self, maxHeight, maxWidth):
@@ -809,6 +817,7 @@ class House(object):
             doorX += 1
         self.doors[(self.height, doorX)] = Door(self.game, self.height, doorX)
         self.doors[(self.height, doorX)].locked = True
+        self.frontDoorPos = (self.height, doorX)
 
     def generateDoors(self):
         """Make the doors for the house"""
@@ -1113,6 +1122,7 @@ class NPC(Entity):
         self.colour = curses.color_pair(0)
         self.path = []
         self.square = None
+        self.plan = Plan(self)
 
         # Emotions and states
         self.scared = False
@@ -1122,15 +1132,17 @@ class NPC(Entity):
         # If we need to know that the NPC is at home, regardless of their
         # plan
         if self.square:
-            isInX = (self.x > self.square.xOffset and
-                     self.x < self.square.xOffset + self.square.house.width)
-            isInY = (self.y > self.square.yOffset and
-                     self.y < self.square.yOffset + self.square.house.height)
+            isInX = (self.x > self.square.houseXOffset and
+                     self.x < self.square.houseXOffset + self.square.house.width)
+            isInY = (self.y > self.square.houseYOffset and
+                     self.y < self.square.houseYOffset + self.square.house.height)
             return isInX and isInY
 
     def update(self):
         # Move randomly, or sometimes actually pick a place to go and go there!
-        # Later, update to use Plans.
+        # If we have a plan and we're not otherwise occupied (to do), execute it
+        self.plan.checkForAndExecutePlanEntry()
+
         if self.path:
             (nextY, nextX) = self.path[0]
             # The algorithm will have avoided walls and fences,
@@ -1138,19 +1150,20 @@ class NPC(Entity):
             blockedByEntity = False
             blockedByDoor = False
             # Check for player..
-            if (self.game.player.y, self.game.player.y) == (nextY, nextX):
+            if (self.game.player.y, self.game.player.x) == (nextY, nextX):
                 blockedByEntity = True
             # Check for NPC..
             for npc in self.game.npcs:
-                if (npc.y, npc.x) == (nextY, nextX):
-                    blockedByEntity = True
+                if npc is not self:
+                    if (npc.y, npc.x) == (nextY, nextX):
+                        blockedByEntity = True
             # Check for Door..
             if (nextY, nextX) in self.game.doors:
                 door = self.game.doors[(nextY, nextX)]
                 if door.closed:
                     blockedByDoor = True
                     door.npcOpen()
-            if not blockedByEntity and not blockedByDoor:
+            if (not blockedByEntity) and (not blockedByDoor):
                 (self.y, self.x) = (nextY, nextX)
                 self.path.pop(0)
         else:
@@ -1249,19 +1262,41 @@ class Plan(object):
         other entries. Override action function to provide actual
         logic"""
         def __init__(self, npc):
-            super(PlanEntry, self).__init__(self)
+            super(Plan.PlanEntry, self).__init__()
+            self.npc = npc
             self.shouldReschedule = False
             self.rescheduleTime = (0, 0) # In (hours, minutes) from the
                                          # time of rescheduling
         def action(self):
-            True
+            return True
+
+    class VisitNeighbour(PlanEntry):
+        """Triggers a path-finding event to the specified square index"""
+        def __init__(self, npc, square):
+            super(Plan.VisitNeighbour, self).__init__(npc)
+            self.square = npc.game.squares[square]
+
+        def action(self):
+            house = self.square.house
+            # This takes them to just inside the door.
+            targetY = self.square.y + self.square.houseYOffset + house.frontDoorPos[0] - 1
+            targetX = self.square.x + self.square.houseXOffset + house.frontDoorPos[1]
+            self.npc.path = self.npc.findPath(targetY, targetX)
+
+            # TODO: Some sort of 'don't leave the house' flag, I guess
+            return True
 
     def __init__(self, npc):
-        super(Plan, self).__init__(self)
+        super(Plan, self).__init__()
         self.npc = npc
         self.planEntries = dict() # (hour, minute) -> PlanEntry
 
-    def checkForAndExecutePlan(self):
+    def addPlanEntry(self, hour, minute, plan):
+        """Abstraction for adding PlanEntries to the plan"""
+        self.planEntries[(hour, minute)] = plan
+
+    def checkForAndExecutePlanEntry(self):
+        """Also removes the PlanEntry from the dict to avoid repeating it"""
         hour = self.npc.game.hour
         minute = self.npc.game.minute
         if (hour, minute) in self.planEntries:
@@ -1278,6 +1313,8 @@ class Plan(object):
                 while newHour >= 24:
                     newHour -= 24
                 self.planEntries[(newHour, newMinute)] = planEntry
+            elif actionSuccessful:
+                del self.planEntries[(hour, minute)]
 
 def main(stdscr):
     """Initialises the Game object and basically gets out of the way"""
