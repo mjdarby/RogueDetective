@@ -48,12 +48,12 @@ class Game:
     SCREENHEIGHT = MAPHEIGHT + 1
 
     # Other constants (debugging, etc)
-    # I'll take "What is a consistant naming convention for 500, Alex." 
     PATHFINDING_DEBUG = False
-    DOORCLOSETIME = 10
-    TURNSBETWEENMINUTES = 3
+    DOOR_CLOSE_TIME = 10
+    TURNS_BETWEEN_MINUTES = 3
     FRONT_DOORS_LOCKED = False
     FOV_ENABLED = False
+    NPC_ON_NPC_COLLISIONS = False
 
     # Map of keyboard key to action
     KEYMAP = dict()
@@ -250,7 +250,6 @@ class Game:
             self.draw()
             self.handleInput()
 
-
     def isInCamera(self, cameraY, cameraX, entityY, entityX):
         """ Shouldn't be a class method. Determines if we should draw
         a character or not."""
@@ -299,7 +298,6 @@ class Game:
                         wall = self.walls[(y,x)]
                         self.gameScreen.addstr(y, x, wall.character, curses.color_pair(0))
 
-
         # Draw the entities like players, NPCs
         for npc in self.npcs:
             npcPos = (npc.y, npc.x)
@@ -307,7 +305,6 @@ class Game:
                 tile = self.tiles[npcPos]
                 if tile.visible:
                     self.gameScreen.addstr(npc.y, npc.x, npc.character, npc.colour)
-
 
         player = self.player
         self.gameScreen.addstr(player.y, player.x,
@@ -485,7 +482,7 @@ class Game:
                 self.hour += 1
                 if self.hour == 24:
                     self.hour = 0
-            self.turnsToNextMinute = Game.TURNSBETWEENMINUTES
+            self.turnsToNextMinute = Game.TURNS_BETWEEN_MINUTES
         else:
             self.turnsToNextMinute -= 1
 
@@ -564,7 +561,7 @@ class Door(object):
         self.closed = not self.closed
         self.character = '+' if self.closed else '-'
         if not self.closed:
-            self.timer = self.game.DOORCLOSETIME
+            self.timer = self.game.DOOR_CLOSE_TIME
             try:
                 self.game.walls[(self.y, self.x-1)] # Ridiculous test for wall on the left
                 self.character = '|'
@@ -635,7 +632,7 @@ class Town(object):
                          self.y + yOffset + npcYOffset,
                          self.x + xOffset + npcXOffset)
             newNpc.square = self
-            
+
             self.game.npcs.append(newNpc)
 
         # Finally, add it to the list of squares
@@ -672,7 +669,6 @@ class Town(object):
         for roadX in range(Town.GRID_SIZE + Town.ROAD_HEIGHT):
             for width in range(Town.ROAD_HEIGHT):
                 self.roads[(baseY + Town.GRID_SIZE + width, baseX + roadX)] = road
-
 
     def generateGrid(self):
         """Generate the grids + roads + houses"""
@@ -727,11 +723,13 @@ class House(object):
 
         # Create rooms
         self.generateRooms()
-        
-        # If the house isn't fully navigable, regenerate it
+
+        # If the house isn't fully navigable, regenerate it until it is
         while not self.floodFill():
             del self.rooms[:]
             self.doors.clear()
+            self.walls.clear()
+            self.generateWalls(maxHeight, maxWidth)
             self.generateRooms()
 
         # Create doors
@@ -788,22 +786,13 @@ class House(object):
                 _floodFill(y, x+1, visited)
 
         visited = {}
-        fakeWalls = {}
-
-        for (y1, x1) in self.walls:
-            fakeWalls[(y1), (x1)] = Wall()
-
-        for room in self.rooms:
-            (yRoom, xRoom) = (room.y, room.x)
-            for (y1, x1) in room.walls:
-                fakeWalls[(yRoom + y1), (xRoom + x1)] = Wall()
 
         for y in range(self.height):
             for x in range(self.width):
                 visited[(y,x)] = False
-                if ((y, x) in fakeWalls) and ((y, x) not in self.doors):
+                if ((y, x) in self.walls) and ((y, x) not in self.doors):
                     visited[(y,x)] = True
-                
+
         _floodFill(1, 1, visited)
 
         for y in range(self.height):
@@ -861,6 +850,11 @@ class House(object):
 
             # Remove the original room, because it's now two rooms.
             self.rooms.remove(baseRoom)
+        # Now solidify the walls
+        for room in self.rooms:
+            (yRoom, xRoom) = (room.y, room.x)
+            for (y1, x1) in room.walls:
+                self.walls[(yRoom + y1), (xRoom + x1)] = Wall()
 
     def generateFrontDoor(self):
         """Create the front door"""
@@ -885,12 +879,6 @@ class House(object):
         for (y1, x1) in self.decorations:
             self.game.decorations[(y+y1), (x+x1)] = self.decorations[y1, x1]
 
-        # Inner walls..
-        for room in self.rooms:
-            (yRoom, xRoom) = (room.y, room.x)
-            for (y1, x1) in room.walls:
-                self.game.walls[(y + yRoom + y1), (x + xRoom + x1)] = Wall()
-
         # Doors..
         for (y1, x1) in self.doors:
             # If it rests at an intersection of three walls, move the door.
@@ -909,8 +897,6 @@ class House(object):
                 pass
             door = Door(self.game, y1 + y, x1 + x)
             door.locked = self.doors[(oY, oX)].locked
-            if oY == self.height:
-                self.frontDoorPos = (y1, x1)
             self.game.doors[(y1 + y, x1 + x)] = door
 
     def area(self):
@@ -1043,7 +1029,6 @@ class Entity(object):
             moved = False
 
         return moved
-
 
 #### PLAYER
 
@@ -1210,10 +1195,11 @@ class NPC(Entity):
             if (self.game.player.y, self.game.player.x) == (nextY, nextX):
                 blockedByEntity = True
             # Check for NPC..
-            for npc in self.game.npcs:
-                if npc is not self:
-                    if (npc.y, npc.x) == (nextY, nextX):
-                        blockedByEntity = True
+            if Game.NPC_ON_NPC_COLLISIONS:
+                for npc in self.game.npcs:
+                    if npc is not self:
+                        if (npc.y, npc.x) == (nextY, nextX):
+                            blockedByEntity = True
             # Check for Door..
             if (nextY, nextX) in self.game.doors:
                 door = self.game.doors[(nextY, nextX)]
