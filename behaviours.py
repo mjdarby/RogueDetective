@@ -21,7 +21,7 @@ def VisitingHouse(npc):
                 randomDirection = random.randint(1,5)
             else:
                 break
-    npc.attemptMove(random.randint(1,5))
+    npc.attemptMove(randomDirection)
 
 functions = {}
 functions[Status.VISITING_HOUSE] = VisitingHouse
