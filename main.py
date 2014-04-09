@@ -1,23 +1,14 @@
+# The main file, with all the stuff. Yeah.
+
+# External imports
 import curses;
+
+# Python imports
 import time, platform, random, math;
 
-class Direction:
-    """An enum for the possible movement directions"""
-    UP = 1
-    DOWN = 2
-    LEFT = 3
-    RIGHT = 4
-
-class InputActions:
-    """Enum for input actions"""
-    MOVE_UP = 1
-    MOVE_LEFT = 2
-    MOVE_RIGHT = 3
-    MOVE_DOWN = 4
-    OPEN_DOOR = 5
-    QUIT = 6
-    KICK_DOOR = 7
-    WAIT = 8
+# Our imports
+from enums import Direction, InputActions, Status
+import behaviours
 
 class Game:
     """The game logic itself. The loop and input handling are here."""
@@ -708,6 +699,8 @@ class House(object):
                 self.walls[(y, self.width)] = Wall()
 
     def __init__(self, game):
+        self.absoluteX = 0
+        self.absoluteY = 0
         self.width = 0
         self.height = 0
         self.rooms = []
@@ -871,6 +864,8 @@ class House(object):
 
     def createHouse(self, y, x):
         """Actually builds the house, regardless of if it fits or not"""
+        self.absoluteX = x
+        self.absoluteY = y
         # Build the walls..
         for (y1, x1) in self.walls:
             self.game.walls[(y+y1), (x+x1)] = Wall()
@@ -910,6 +905,7 @@ class Entity(object):
         self.y = 15
         self.character = '@'
         self.game = game
+        self.status = Status.IDLE
 
     def checkObstruction(self, direction = None, steps = 1):
         """Returns true if moving in the given direction isn't allowed"""
@@ -1152,6 +1148,7 @@ class Player(Entity):
                         blocked = False
             if blocked: # If the last block in the row scan was a blocker, we stop.
                 break
+
 ##### NPCS
 
 class NPC(Entity):
@@ -1167,8 +1164,12 @@ class NPC(Entity):
         self.plan = Plan(self)
 
         # Emotions and states
+        # TODO: Something with this?
         self.scared = False
         self.answeringDoor = False
+
+        # Plan-set variables
+        self.currentlyVisitingHouse = None
 
     def isAtHome(self):
         # If we need to know that the NPC is at home, regardless of their
@@ -1184,6 +1185,10 @@ class NPC(Entity):
         # Move randomly, or sometimes actually pick a place to go and go there!
         # If we have a plan and we're not otherwise occupied (to do), execute it
         self.plan.checkForAndExecutePlanEntry()
+
+        # Once we've decided on a plan (or have no plan), the NPC should first
+        # go to anywhere they're planning on being before performing their status
+        # action.
 
         if self.path:
             (nextY, nextX) = self.path[0]
@@ -1220,7 +1225,10 @@ class NPC(Entity):
                         if (targetY, targetX) not in self.game.walls:
                             break
                     self.path = self.findPath(targetY, targetX)
-            self.attemptMove(random.randint(1,5))
+            if self.status is not Status.IDLE:
+                behaviours.functions[self.status](self)
+            else:
+                self.attemptMove(random.randint(1,5))
 
     def findPath(self, targetY, targetX):
         """A big ol' ripoff of the A* algorithm"""
@@ -1237,8 +1245,12 @@ class NPC(Entity):
 
         def spaceObstructed(y, x, game):
             wallObstruction = (y, x) in game.walls
-            # fenceObstruction = (y, x) in game.fences
-            fenceObstruction = False
+
+            # This line WILL cause pathfinding failures if the character is
+            # currently inside a fenced area or is attempting to pathfind into
+            # one.
+            fenceObstruction = (y, x) in game.fences
+            #fenceObstruction = False
             return wallObstruction or fenceObstruction
 
         def returnNeighbours(node, game):
@@ -1325,6 +1337,8 @@ class Plan(object):
             targetY = self.square.y + self.square.houseYOffset + house.frontDoorPos[0] - 1
             targetX = self.square.x + self.square.houseXOffset + house.frontDoorPos[1]
             self.npc.path = self.npc.findPath(targetY, targetX)
+            self.npc.status = Status.VISITING_HOUSE
+            self.npc.currentlyVisitingHouse = self.square.house
 
             # TODO: Some sort of 'don't leave the house' flag, I guess
             return True
