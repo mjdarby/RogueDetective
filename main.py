@@ -48,9 +48,12 @@ class Game:
     SCREENHEIGHT = MAPHEIGHT + 1
 
     # Other constants (debugging, etc)
+    # I'll take "What is a consistant naming convention for 500, Alex." 
     PATHFINDING_DEBUG = False
     DOORCLOSETIME = 10
     TURNSBETWEENMINUTES = 3
+    FRONT_DOORS_LOCKED = False
+    FOV_ENABLED = False
 
     # Map of keyboard key to action
     KEYMAP = dict()
@@ -118,7 +121,7 @@ class Game:
         for npc in self.npcs:
             randomSquareIndex = random.randint(0, len(self.squares) - 1)
             visitNeighbour = Plan.VisitNeighbour(npc, randomSquareIndex)
-            npc.plan.addPlanEntry(8, 5, visitNeighbour)
+            npc.plan.addPlanEntry(8, 0, visitNeighbour)
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -504,6 +507,8 @@ class Tile(object):
     def __init__(self):
         self.visible = False
         self.seen = False
+        if not Game.FOV_ENABLED:
+            self.seen = True
 
 class Decoration(object):
     """Just a decorative tile."""
@@ -620,10 +625,15 @@ class Town(object):
                    and (self.y + Town.GRID_SIZE -1, x + self.x) not in self.game.doors:
                     self.game.fences[(self.y + Town.GRID_SIZE - 1, x + self.x)] = Fence()
 
-            # NPC owners! Woohoo! Spawn them inside the house
+            # NPC owners! Woohoo! Spawn them inside the house, but not in a wall
+            npcYOffset = 0
+            npcXOffset = 0
+            while (self.y + yOffset + npcYOffset, self.x + xOffset + npcXOffset) in self.game.walls:
+                npcYOffset = random.randint(1, house.height - 2)
+                npcXOffset = random.randint(1, house.width - 2)
             newNpc = NPC(self.game,
-                         self.y + yOffset + random.randint(1, house.height - 2),
-                         self.x + xOffset + random.randint(1, house.width - 2))
+                         self.y + yOffset + npcYOffset,
+                         self.x + xOffset + npcXOffset)
             newNpc.square = self
             
             self.game.npcs.append(newNpc)
@@ -717,6 +727,12 @@ class House(object):
 
         # Create rooms
         self.generateRooms()
+        
+        # If the house isn't fully navigable, regenerate it
+        while not self.floodFill():
+            del self.rooms[:]
+            self.doors.clear()
+            self.generateRooms()
 
         # Create doors
         self.generateDoors()
@@ -737,9 +753,6 @@ class House(object):
         for y in range(self.height):
             self.walls[(y, 0)] = Wall()
             self.walls[(y, self.width)] = Wall()
-        # For now, pick a random wall on the bottom and put the door in it
-        self.doorX = random.randint(1,self.width-1)
-        del self.walls[(self.height, self.doorX)]
 
     def generateFirstPartition(self):
         # Make the initial rooms via the first partition
@@ -760,6 +773,45 @@ class House(object):
             self.rooms.append(room)
             doorPos = random.randint(1, self.height - 1)
             self.doors[(doorPos, cut)] = Door(self.game, doorPos, cut)
+
+    def floodFill(self):
+        """Returns true if every square of the house is reachable from the top-left space"""
+        def _floodFill(y, x, visited):
+            if x >= 0 and x < self.width and y >= 0 and y < self.height:
+                if visited[(y,x)]:
+                    return
+
+                visited[(y,x)] = True
+                _floodFill(y-1, x, visited)
+                _floodFill(y, x-1, visited)
+                _floodFill(y+1, x, visited)
+                _floodFill(y, x+1, visited)
+
+        visited = {}
+        fakeWalls = {}
+
+        for (y1, x1) in self.walls:
+            fakeWalls[(y1), (x1)] = Wall()
+
+        for room in self.rooms:
+            (yRoom, xRoom) = (room.y, room.x)
+            for (y1, x1) in room.walls:
+                fakeWalls[(yRoom + y1), (xRoom + x1)] = Wall()
+
+        for y in range(self.height):
+            for x in range(self.width):
+                visited[(y,x)] = False
+                if ((y, x) in fakeWalls) and ((y, x) not in self.doors):
+                    visited[(y,x)] = True
+                
+        _floodFill(1, 1, visited)
+
+        for y in range(self.height):
+            for x in range(self.width):
+                if not visited[(y,x)]:
+                    return False
+
+        return True
 
     def generateRooms(self):
         """Create the rooms by repeated partitioning"""
@@ -791,7 +843,7 @@ class House(object):
             cut = random.randint(House.MINIMUM_ROOM_DIMENSION,
                                  (baseRoom.height if widthwisePartition else baseRoom.width) - House.MINIMUM_ROOM_DIMENSION)
 
-            # Create the two rooms annd put a door in connecting the two new rooms
+            # Create the two rooms and put a door in connecting the two new rooms
             if widthwisePartition:
                 room = House.Room(baseRoom.y, baseRoom.x, cut, baseRoom.width)
                 self.rooms.append(room)
@@ -813,10 +865,10 @@ class House(object):
     def generateFrontDoor(self):
         """Create the front door"""
         doorX = random.randint(1,self.width-1)
-        if (self.height-1, doorX) is self.walls:
-            doorX += 1
+        if (self.height-1, doorX) in self.walls:
+            doorX -= 1
         self.doors[(self.height, doorX)] = Door(self.game, self.height, doorX)
-        self.doors[(self.height, doorX)].locked = True
+        self.doors[(self.height, doorX)].locked = Game.FRONT_DOORS_LOCKED
         self.frontDoorPos = (self.height, doorX)
 
     def generateDoors(self):
@@ -857,6 +909,8 @@ class House(object):
                 pass
             door = Door(self.game, y1 + y, x1 + x)
             door.locked = self.doors[(oY, oX)].locked
+            if oY == self.height:
+                self.frontDoorPos = (y1, x1)
             self.game.doors[(y1 + y, x1 + x)] = door
 
     def area(self):
@@ -867,7 +921,7 @@ class Entity(object):
     """The base entity object, for players and NPCs"""
     def __init__(self, game):
         self.x = 0
-        self.y = 0
+        self.y = 15
         self.character = '@'
         self.game = game
 
@@ -1006,7 +1060,10 @@ class Player(Entity):
         # Reset the current FoV
         for tile in self.game.tiles:
             tile = self.game.tiles[tile]
-            tile.visible = False
+            if Game.FOV_ENABLED:
+                tile.visible = False
+            else:
+                tile.visible = True
 
         # Start the shadowcast for each octact
         octants = 8 # This is constant naming gone mad.
