@@ -1,7 +1,4 @@
-# Our entities!
-
-# External imports
-import curses
+# Our entities, the NPCs and Player.
 
 # Our imports
 from enums import Status, Direction
@@ -147,7 +144,7 @@ class Player(Entity):
     def __init__(self, game):
         """Initialise the player object"""
         super(Player, self).__init__(game)
-        self.colour = curses.COLOR_WHITE
+        self.colour = Constants.COLOUR_RED
 
     def generateFov(self):
         """Reveals grid squares if they've never been seen before,
@@ -272,7 +269,7 @@ class NPC(Entity):
         super(NPC, self).__init__(game)
         self.y = y
         self.x = x
-        self.colour = curses.color_pair(0)
+        self.colour = Constants.COLOUR_WHITE
         self.path = []
         self.square = None
         self.plan = Plan(self)

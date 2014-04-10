@@ -1,9 +1,10 @@
 # All the constants, super sweet. Collected in ultra cool class form!
 
-from enums import InputActions
+# External imports
+import curses
 
-# TODO: Put the colours in here, it's getting silly having to import curses
-# everywhere
+# Our imports
+from enums import InputActions
 
 class Constants:
     """All the constants used by the game that need to be shared across
@@ -61,3 +62,16 @@ class Constants:
 
     KEYMAP[ord('.')] = InputActions.WAIT
 
+    COLOUR_WHITE = None
+    COLOUR_RED = None
+    COLOUR_GREEN = None
+    COLOUR_BLUE = None
+
+    @staticmethod
+    def initColours():
+        # Colours
+        Constants.COLOUR_WHITE = curses.color_pair(0)
+        Constants.COLOUR_RED = curses.color_pair(1)
+        Constants.COLOUR_YELLOW = curses.color_pair(2)
+        Constants.COLOUR_GREEN = curses.color_pair(3)
+        Constants.COLOUR_BLUE = curses.color_pair(5)

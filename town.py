@@ -1,8 +1,5 @@
 # Town stuff, including houses!
 
-# External imports
-import curses
-
 # Python imports
 import random
 
@@ -96,7 +93,7 @@ class Town(object):
         baseX = widthIdx * (Town.GRID_SIZE + Town.ROAD_WIDTH)
         road = Decoration()
         road.character = '#'
-        road.colour = curses.color_pair(3)
+        road.colour = Constants.COLOUR_YELLOW
         for roadX in range(Town.GRID_SIZE + Town.ROAD_WIDTH - 1):
             for width in range(Town.ROAD_WIDTH):
                 self.roads[(baseY + roadX, baseX + Town.GRID_SIZE + width)] = road
@@ -182,7 +179,7 @@ class House(object):
             for y in range(self.height):
                 decoration = Decoration()
                 decoration.character = '.'
-                decoration.colour = curses.color_pair(0)
+                decoration.colour = Constants.COLOUR_WHITE
                 self.decorations[(y, x)] = decoration
         for y in range(self.height):
             self.walls[(y, 0)] = Wall()

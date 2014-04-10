@@ -1,9 +1,6 @@
 # Tiles, tiles, tiles! Doors, walls.. If it's not a player but it's
 # on the map, it goes here.
 
-# External imports
-import curses
-
 # Our imports
 from constants import Constants
 
@@ -21,13 +18,13 @@ class Decoration(object):
     """Just a decorative tile."""
     def __init__(self):
         self.character = '?'
-        self.colour = curses.color_pair(3)
+        self.colour = Constants.COLOUR_GREEN
 
 class Fence(object):
     """Fences are walls that can be jumped over."""
     def __init__(self):
         self.character = '#'
-        self.colour = curses.color_pair(0)
+        self.colour = Constants.COLOUR_WHITE
 
 class Door(object):
     """Players can open or close these!"""
@@ -37,7 +34,7 @@ class Door(object):
         self.character = '+'
         self.closed = True
         self.locked = False
-        self.colour = curses.COLOR_RED
+        self.colour = Constants.COLOUR_RED
         self.game = game
         self.timer = -1
 
@@ -85,4 +82,4 @@ class Wall(object):
         self.x = 21
         self.y = 20
         self.character = '|'
-        self.colour = curses.COLOR_WHITE
+        self.colour = Constants.COLOUR_WHITE

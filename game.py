@@ -271,7 +271,7 @@ class Game:
                     continue
 
                 if self.tiles[(y, x)].visible:
-                    self.gameScreen.addstr(y, x, '.', curses.color_pair(3))
+                    self.gameScreen.addstr(y, x, '.', Constants.COLOUR_GREEN)
 
                     if (y, x) in self.decorations:
                         decoration = self.decorations[(y, x)]
@@ -285,13 +285,13 @@ class Game:
                     # Doors
                     if (y, x) in self.doors:
                         door = self.doors[(y, x)]
-                        self.gameScreen.addstr(y, x, door.character, curses.color_pair(1))
+                        self.gameScreen.addstr(y, x, door.character, door.colour)
 
                 if (self.tiles[(y,x)].seen
                     and (alwaysSeeWalls or self.tiles[(y,x)].visible)):
                     if (y, x) in self.walls:
                         wall = self.walls[(y,x)]
-                        self.gameScreen.addstr(y, x, wall.character, curses.color_pair(0))
+                        self.gameScreen.addstr(y, x, wall.character, wall.colour)
 
         # Draw the entities like players, NPCs
         for npc in self.npcs:
@@ -303,7 +303,7 @@ class Game:
 
         player = self.player
         self.gameScreen.addstr(player.y, player.x,
-                               player.character, curses.color_pair(1))
+                               player.character, player.colour)
 
         # Status line printing
         self.screen.addstr(0, 0, self.statusLine)
