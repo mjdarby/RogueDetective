@@ -109,14 +109,11 @@ class Game:
             for y in range(Game.MAPHEIGHT):
                 self.tiles[(y,x)] = Tile()
 
-        # Test town:
+        # Town creation
         self.town = Town(self, 5, 5, 3, 3)
-
-        # Plan test!
-        for npc in self.npcs:
-            randomSquareIndex = random.randint(0, len(self.squares) - 1)
-            visitNeighbour = Plan.VisitNeighbour(npc, randomSquareIndex)
-            npc.plan.addPlanEntry(8, 0, visitNeighbour)
+        
+        # Put together the NPC schedules
+        self.generatePlans()
 
     def initialiseWalls(self):
         """Builds the correct wall graphics"""
@@ -413,6 +410,37 @@ class Game:
             self.printStatus("Nevermind.")
             actionTaken = False
         return actionTaken
+        
+    def openDoor(self):
+        self.printStatus("Which direction?")
+        direction = self.screen.getch()
+        playerPos = [self.player.y, self.player.x]
+        actionTaken = True
+        try:
+            direction = Game.KEYMAP[direction]
+            if direction == InputActions.MOVE_LEFT:
+                playerPos[1] -= 1
+            elif direction == InputActions.MOVE_DOWN:
+                playerPos[0] += 1
+            elif direction == InputActions.MOVE_UP:
+                playerPos[0] -= 1
+            elif direction == InputActions.MOVE_RIGHT:
+                playerPos[1] += 1
+
+            if playerPos != [self.player.y, self.player.x]:
+                try:
+                    door = self.doors[tuple(playerPos)]
+                    door.playerOpen()
+                except:
+                    self.printStatus("No door there!")
+                    actionTaken = False
+            else:
+                self.printStatus("Nevermind.")
+                actionTaken = False
+        except:
+            self.printStatus("Nevermind.")
+            actionTaken = False
+        return actionTaken
 
     def handleInput(self):
         """ Wait for the player to press a key, then handle
@@ -434,39 +462,23 @@ class Game:
                 actionTaken = self.player.attemptMove(Direction.UP)
             elif key == InputActions.MOVE_RIGHT:
                 actionTaken = self.player.attemptMove(Direction.RIGHT)
-            # Open doors?
             elif key == InputActions.OPEN_DOOR:
-                self.printStatus("Which direction?")
-                direction = self.screen.getch()
-                playerPos = [self.player.y, self.player.x]
-                try:
-                    direction = Game.KEYMAP[direction]
-                    if direction == InputActions.MOVE_LEFT:
-                        playerPos[1] -= 1
-                    elif direction == InputActions.MOVE_DOWN:
-                        playerPos[0] += 1
-                    elif direction == InputActions.MOVE_UP:
-                        playerPos[0] -= 1
-                    elif direction == InputActions.MOVE_RIGHT:
-                        playerPos[1] += 1
-
-                    if playerPos != [self.player.y, self.player.x]:
-                        try:
-                            door = self.doors[tuple(playerPos)]
-                            door.playerOpen()
-                        except:
-                            self.printStatus("No door there!")
-                            actionTaken = False
-                    else:
-                        self.printStatus("Nevermind.")
-                        actionTaken = False
-                except:
-                    self.printStatus("Nevermind.")
-                    actionTaken = False
+                actionTaken = self.openDoor()
             elif key == InputActions.KICK_DOOR:
                 actionTaken = self.kickDoor()
             elif key == InputActions.WAIT:
                 actionTaken = True # Do nothing.
+
+    def generatePlans(self):
+        """Generate the initial Plans for all NPCs"""
+        # It should be pretty consistent. Like, if an NPC is visiting 
+        # another NPC's house, the vistee shouldn't make a plan to go out.
+        for npc in self.npcs:
+            for x in range(5):
+                randomSquareIndex = random.randint(0, len(self.squares) - 1)
+                visitNeighbour = Plan.VisitNeighbour(npc, randomSquareIndex)
+                randomHour = random.randint(0, 8) + 8
+                npc.plan.addPlanEntry(randomHour, 0, visitNeighbour)
 
     def logic(self):
         """Run all the assorted logic for all entities and advance the clock"""
