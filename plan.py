@@ -3,9 +3,12 @@
 # Our imports
 from enums import Status
 from constants import Constants
+import behaviours # Given the similar names, we should fully reference these
 
 class Plan(object):
-    """Describes an NPC's schedule throughout the game day"""
+    """Describes an NPC's schedule throughout the game day.
+    The Plan is responsible for getting the NPC to where they want to go,
+    and putting them in to the correct Behaviour state"""
     class PlanEntry(object):
         """Individual entry in the NPC plan, superclass for
         other entries. Override action function to provide actual
@@ -34,10 +37,9 @@ class Plan(object):
             targetY = self.square.y + self.square.houseYOffset + house.frontDoorPos[0] - 1
             targetX = self.square.x + self.square.houseXOffset + house.frontDoorPos[1]
             self.npc.path = self.npc.findPath(targetY, targetX)
-            self.npc.status = Status.VISITING_HOUSE
-            self.npc.currentlyVisitingHouse = self.square.house
+            self.npc.currentBehaviour = behaviours.VisitingHouse(self.npc,
+                                                                self.square.house)
 
-            # TODO: Some sort of 'don't leave the house' flag, I guess
             return True
 
     def __init__(self, npc):

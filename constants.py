@@ -44,7 +44,7 @@ class Constants:
     FRONT_DOORS_LOCKED = False # Lock all front doors
     FOV_ENABLED = False # Enable shadowcasting
     NPC_ON_NPC_COLLISIONS = False # NPCs collide during pathfinding
-    PARTY_AT_MY_PLACE = False # When visiting a neighbour, always go top left
+    PARTY_AT_MY_PLACE = True # When visiting a neighbour, always go top left
 
     # Map of keyboard key to action
     KEYMAP = dict()

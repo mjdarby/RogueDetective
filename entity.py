@@ -7,7 +7,7 @@ from plan import Plan
 
 from constants import Constants
 
-import behaviours
+from behaviours import DefaultBehaviour
 
 class Entity(object):
     """The base entity object, for players and NPCs"""
@@ -273,14 +273,12 @@ class NPC(Entity):
         self.path = []
         self.square = None
         self.plan = Plan(self)
+        self.currentBehaviour = DefaultBehaviour(self)
 
         # Emotions and states
         # TODO: Something with this?
         self.scared = False
         self.answeringDoor = False
-
-        # Plan-set variables
-        self.currentlyVisitingHouse = None
 
     def isAtHome(self):
         # If we need to know that the NPC is at home, regardless of their
@@ -336,10 +334,7 @@ class NPC(Entity):
                         if (targetY, targetX) not in self.game.walls:
                             break
                     self.path = self.findPath(targetY, targetX)
-            if self.status is not Status.IDLE:
-                behaviours.functions[self.status](self)
-            else:
-                self.attemptMove(random.randint(1,5))
+            self.currentBehaviour.execute()
 
     def findPath(self, targetY, targetX):
         """A big ol' ripoff of the A* algorithm"""
