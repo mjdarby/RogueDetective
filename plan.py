@@ -2,6 +2,7 @@
 
 # Our imports
 from enums import Status
+from constants import Constants
 
 class Plan(object):
     """Describes an NPC's schedule throughout the game day"""
@@ -22,7 +23,10 @@ class Plan(object):
         """Triggers a path-finding event to the specified square index"""
         def __init__(self, npc, square):
             super(Plan.VisitNeighbour, self).__init__(npc)
-            self.square = npc.game.squares[square]
+            if Constants.PARTY_AT_MY_PLACE:
+                self.square = npc.game.squares[0]
+            else:
+                self.square = npc.game.squares[square]
 
         def action(self):
             house = self.square.house

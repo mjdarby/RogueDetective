@@ -35,13 +35,16 @@ class Constants:
     SCREENWIDTH = MAPWIDTH
     SCREENHEIGHT = MAPHEIGHT + 1
 
-    # Other constants (debugging, etc)
-    PATHFINDING_DEBUG = False
-    DOOR_CLOSE_TIME = 10
-    TURNS_BETWEEN_MINUTES = 3
-    FRONT_DOORS_LOCKED = False
-    FOV_ENABLED = False
-    NPC_ON_NPC_COLLISIONS = False
+    # Other constants
+    DOOR_CLOSE_TIME = 10 # Turns before door closes
+    TURNS_BETWEEN_MINUTES = 3 # Turns before minute passes
+
+    # Debugging constants
+    PATHFINDING_DEBUG = False # Turn on random pathfinding
+    FRONT_DOORS_LOCKED = False # Lock all front doors
+    FOV_ENABLED = False # Enable shadowcasting
+    NPC_ON_NPC_COLLISIONS = False # NPCs collide during pathfinding
+    PARTY_AT_MY_PLACE = False # When visiting a neighbour, always go top left
 
     # Map of keyboard key to action
     KEYMAP = dict()
