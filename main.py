@@ -6,13 +6,14 @@ import curses
 # Our imports
 from game import Game
 from constants import Constants
+from title import TitleScreen
 
 def main(stdscr):
     """Initialises the Game object and basically gets out of the way"""
     # Make sure the screen is big enough for our amazing game
     (ywidth, xwidth) = stdscr.getmaxyx()
-    if (ywidth < Game.YRES or xwidth < Game.XRES):
-        stdscr.addstr("The terminal should be at least {} by {}".format(Game.XRES, Game.YRES))
+    if (ywidth < Constants.YRES or xwidth < Constants.XRES):
+        stdscr.addstr("The terminal should be at least {} by {}".format(Constants.XRES, Constants.YRES))
         stdscr.getch()
         return -1
 
@@ -25,12 +26,12 @@ def main(stdscr):
     Constants.initColours()
 
     # Make the window..
-    win = curses.newwin(Game.YRES, Game.XRES)
+    win = curses.newwin(Constants.YRES, Constants.XRES)
     win.bkgd(' ', curses.color_pair(0))
 
-    # Start the game!
-    game = Game(win)
-    game.mainLoop()
+    # Start the game, with the title screen.
+    title = TitleScreen(win)
+    title.execute()
 
 if __name__ == '__main__':
     """Handles all the nasty stuff to do with curses set-up + tear-down"""

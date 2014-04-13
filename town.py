@@ -33,6 +33,7 @@ class Town(object):
             # Generate the building
             house = House(self.game)
             self.house = house
+            self.house.number = len(self.game.npcs) + 1
             house.generateLayout(Town.GRID_SIZE, Town.GRID_SIZE)
             yOffset = Town.GRID_SIZE - house.height - 1
             xSpace = Town.GRID_SIZE - house.width - 1
@@ -65,8 +66,8 @@ class Town(object):
                          self.x + xOffset + npcXOffset)
             newNpc.square = self
             self.npc = newNpc
-            self.npc.character = str(len(self.game.npcs))
-
+            self.npc.character = str(self.house.number)
+            
             self.game.npcs.append(newNpc)
 
         # Finally, add it to the list of squares
@@ -304,7 +305,7 @@ class House(object):
 
         # The house number sign
         sign = self.walls[(self.height, doorX - 1)]
-        sign.character = str(len(self.game.npcs))
+        sign.character = str(self.number)
         sign.colour = Constants.COLOUR_GREEN
 
     def generateDoors(self):

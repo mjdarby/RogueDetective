@@ -68,7 +68,7 @@ class Door(object):
         self.closed = not self.closed
         self.character = '+' if self.closed else '-'
         if not self.closed:
-            self.timer = self.game.DOOR_CLOSE_TIME
+            self.timer = Constants.DOOR_CLOSE_TIME
             try:
                 self.game.walls[(self.y, self.x-1)] # Ridiculous test for wall on the left
                 self.character = '|'

@@ -16,64 +16,11 @@ from plan import Plan
 
 class Game:
     """The game logic itself. The loop and input handling are here."""
-
-    # The window resolution
-    XRES = 80
-    YRES = 24
-
-    # The offset of the game screen itself
-    # Status messages appear on the first line,
-    # so we currently offset by 1 y-line
-    TOPLEFT = (1, 0)
-
-    # Game width/height: The size of the visible map at any one time
-    GAMEWIDTH = 78
-    GAMEHEIGHT = 21
-
-    # Map width/height: The complete size of the map
-    # NB. Must be greater than or equal to the game width/height
-    # May remove this restriction later on, but right now breaking it
-    # messed with the cursor logic.
-    MAPWIDTH = 78
-    MAPHEIGHT = 75
-
-    # Screen width/height: Size of the curses pad. +1 height because
-    # of a crazy off-the-screen cursor bug
-    SCREENWIDTH = MAPWIDTH
-    SCREENHEIGHT = MAPHEIGHT + 1
-
-    # Other constants (debugging, etc)
-    PATHFINDING_DEBUG = False
-    DOOR_CLOSE_TIME = 10
-    TURNS_BETWEEN_MINUTES = 3
-    FRONT_DOORS_LOCKED = False
-    FOV_ENABLED = False
-    NPC_ON_NPC_COLLISIONS = False
-
-    # Map of keyboard key to action
-    KEYMAP = dict()
-    KEYMAP[ord('h')] = InputActions.MOVE_LEFT
-    KEYMAP[ord('j')] = InputActions.MOVE_DOWN
-    KEYMAP[ord('k')] = InputActions.MOVE_UP
-    KEYMAP[ord('l')] = InputActions.MOVE_RIGHT
-
-    KEYMAP[ord('4')] = InputActions.MOVE_LEFT
-    KEYMAP[ord('2')] = InputActions.MOVE_DOWN
-    KEYMAP[ord('8')] = InputActions.MOVE_UP
-    KEYMAP[ord('6')] = InputActions.MOVE_RIGHT
-
-    KEYMAP[ord('o')] = InputActions.OPEN_DOOR
-    KEYMAP[ord('p')] = InputActions.KICK_DOOR
-    KEYMAP[ord('K')] = InputActions.KICK_DOOR
-    KEYMAP[ord('q')] = InputActions.QUIT
-
-    KEYMAP[ord('.')] = InputActions.WAIT
-
     def __init__(self, screen):
         """Create the screen, player, assets."""
         # Some technical items, first
         self.screen = screen
-        self.gameScreen = curses.newpad(Game.SCREENHEIGHT, Game.SCREENWIDTH)
+        self.gameScreen = curses.newpad(Constants.SCREENHEIGHT, Constants.SCREENWIDTH)
         self.running = True
 
         # Collections of various objects
@@ -100,13 +47,13 @@ class Game:
         ### The actual game creation logic
         # Random decoration
         for _ in range(500):
-            (y, x) = (random.randint(1, Game.MAPHEIGHT - 1), random.randint(1, Game.MAPWIDTH - 1))
+            (y, x) = (random.randint(1, Constants.MAPHEIGHT - 1), random.randint(1, Constants.MAPWIDTH - 1))
             self.decorations[(y, x)] = Decoration()
 
         # Create tiles for visibility and FoV
         self.tiles = dict()
-        for x in range(Game.MAPWIDTH):
-            for y in range(Game.MAPHEIGHT):
+        for x in range(Constants.MAPWIDTH):
+            for y in range(Constants.MAPHEIGHT):
                 self.tiles[(y,x)] = Tile()
 
         # Town creation
@@ -250,7 +197,7 @@ class Game:
     def isInCamera(self, cameraY, cameraX, entityY, entityX):
         """ Shouldn't be a class method. Determines if we should draw
         a character or not."""
-        return entityY >= cameraY and entityY <= cameraY + Game.GAMEHEIGHT and entityX >= cameraX and entityX <= entityX + Game.GAMEWIDTH
+        return entityY >= cameraY and entityY <= cameraY + Constants.GAMEHEIGHT and entityX >= cameraX and entityX <= entityX + Constants.GAMEWIDTH
 
     def draw(self):
         """ Draw it all, but only the stuff that would be on the screen"""
@@ -259,20 +206,20 @@ class Game:
         self.gameScreen.erase()
 
         # Sort out the camera
-        cameraX = max(0, self.player.x - Game.GAMEWIDTH // 2)
-        cameraX = min(cameraX, Game.MAPWIDTH - Game.GAMEWIDTH)
-        cameraY = max(0, self.player.y - Game.GAMEHEIGHT // 2)
-        cameraY = min(cameraY, Game.MAPHEIGHT - Game.GAMEHEIGHT)
+        cameraX = max(0, self.player.x - Constants.GAMEWIDTH // 2)
+        cameraX = min(cameraX, Constants.MAPWIDTH - Constants.GAMEWIDTH)
+        cameraY = max(0, self.player.y - Constants.GAMEHEIGHT // 2)
+        cameraY = min(cameraY, Constants.MAPHEIGHT - Constants.GAMEHEIGHT)
         alwaysSeeWalls = False
 
         # Draw the floors, walls, etc.
         # Floors first, then we'll override them
-        for x in range(0, Game.MAPWIDTH):
-            for y in range(0, Game.MAPHEIGHT):
+        for x in range(0, Constants.MAPWIDTH):
+            for y in range(0, Constants.MAPHEIGHT):
                 if not self.isInCamera(cameraY, cameraX, y, x):
                     continue
 
-                if self.tiles[(y, x)].visible:
+                if self.tiles[(y, x)].visible or not Constants.FOV_ENABLED:
                     self.gameScreen.addstr(y, x, '.', Constants.COLOUR_GREEN)
 
                     if (y, x) in self.decorations:
@@ -290,7 +237,8 @@ class Game:
                         self.gameScreen.addstr(y, x, door.character, door.colour)
 
                 if (self.tiles[(y,x)].seen
-                    and (alwaysSeeWalls or self.tiles[(y,x)].visible)):
+                    and (alwaysSeeWalls or self.tiles[(y,x)].visible)
+                    or not Constants.FOV_ENABLED):
                     if (y, x) in self.walls:
                         wall = self.walls[(y,x)]
                         self.gameScreen.addstr(y, x, wall.character, wall.colour)
@@ -300,7 +248,7 @@ class Game:
             npcPos = (npc.y, npc.x)
             if npcPos in self.tiles:
                 tile = self.tiles[npcPos]
-                if tile.visible:
+                if tile.visible or not Constants.FOV_ENABLED:
                     self.gameScreen.addstr(npc.y, npc.x, npc.character, npc.colour)
 
         player = self.player
@@ -312,17 +260,17 @@ class Game:
         self.statusLine = ""
 
         # Debug and bottom status stuff
-        self.screen.addstr(Game.GAMEHEIGHT +1, 0, self.bottomLine)
+        self.screen.addstr(Constants.GAMEHEIGHT +1, 0, self.bottomLine)
 
         if self.npcs:
             npc = self.npcs[0]
             if npc.path:
                 path = npc.path[0]
-                self.screen.addstr(Game.GAMEHEIGHT+2, 1, str(path))
+                self.screen.addstr(Constants.GAMEHEIGHT+2, 1, str(path))
 
         self.screen.noutrefresh()
 
-        self.gameScreen.noutrefresh(cameraY, cameraX, 1, 1, Game.GAMEHEIGHT, Game.GAMEWIDTH)
+        self.gameScreen.noutrefresh(cameraY, cameraX, 1, 1, Constants.GAMEHEIGHT, Constants.GAMEWIDTH)
 
         self.moveCursorToPlayer()
 
@@ -333,19 +281,19 @@ class Game:
         """Moves the cursor to the player. Duh."""
         # Make sure the cursor follows the players y/x co-ord
         # when he's near the minimum values of each
-        cursorX = min(Game.GAMEWIDTH // 2 + 1, self.player.x + 1)
-        cursorY = min(Game.GAMEHEIGHT // 2 + 1, self.player.y + 1)
+        cursorX = min(Constants.GAMEWIDTH // 2 + 1, self.player.x + 1)
+        cursorY = min(Constants.GAMEHEIGHT // 2 + 1, self.player.y + 1)
 
         # Make sure the cursor follows the players y/x co-ord +
         # the max camera range when he's near the maximum values
         # of each
-        maxCameraX = Game.MAPWIDTH - Game.GAMEWIDTH // 2 - 1
-        maxCameraY = Game.MAPHEIGHT - Game.GAMEHEIGHT // 2  - 1
+        maxCameraX = Constants.MAPWIDTH - Constants.GAMEWIDTH // 2 - 1
+        maxCameraY = Constants.MAPHEIGHT - Constants.GAMEHEIGHT // 2  - 1
         if self.player.x > maxCameraX:
-            offset = (self.player.x - maxCameraX) + Game.GAMEWIDTH // 2
+            offset = (self.player.x - maxCameraX) + Constants.GAMEWIDTH // 2
             cursorX = offset
         if self.player.y > maxCameraY:
-            offset = self.player.y - maxCameraY + Game.GAMEHEIGHT // 2 + 1
+            offset = self.player.y - maxCameraY + Constants.GAMEHEIGHT // 2 + 1
             cursorY = offset
         self.screen.move(cursorY, cursorX)
 
@@ -354,7 +302,7 @@ class Game:
         gotKey = False
         while not gotKey:
             try:
-                key = Game.KEYMAP[self.screen.getch()]
+                key = Constants.KEYMAP[self.screen.getch()]
                 return key
             except:
                 pass
@@ -384,7 +332,7 @@ class Game:
         success = random.randrange(100) > 80
         playerPos = [self.player.y, self.player.x]
         try:
-            direction = Game.KEYMAP[direction]
+            direction = Constants.KEYMAP[direction]
             if direction == InputActions.MOVE_LEFT:
                 playerPos[1] -= 1
             elif direction == InputActions.MOVE_DOWN:
@@ -422,7 +370,7 @@ class Game:
         playerPos = [self.player.y, self.player.x]
         actionTaken = True
         try:
-            direction = Game.KEYMAP[direction]
+            direction = Constants.KEYMAP[direction]
             if direction == InputActions.MOVE_LEFT:
                 playerPos[1] -= 1
             elif direction == InputActions.MOVE_DOWN:
@@ -511,7 +459,7 @@ class Game:
                 self.hour += 1
                 if self.hour == 24:
                     self.hour = 0
-            self.turnsToNextMinute = Game.TURNS_BETWEEN_MINUTES
+            self.turnsToNextMinute = Constants.TURNS_BETWEEN_MINUTES
         else:
             self.turnsToNextMinute -= 1
 

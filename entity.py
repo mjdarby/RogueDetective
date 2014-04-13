@@ -152,15 +152,12 @@ class Player(Entity):
         # Reset the current FoV
         for tile in self.game.tiles:
             tile = self.game.tiles[tile]
-            if Constants.FOV_ENABLED:
-                tile.visible = False
-            else:
-                tile.visible = True
+            tile.visible = False
 
         # Start the shadowcast for each octact
         octants = 8 # This is constant naming gone mad.
         for octant in range(octants):
-            self.shadowcast(self.y, self.x, 1, self.game.GAMEWIDTH, 1.0, 0.0, octant)
+            self.shadowcast(self.y, self.x, 1, Constants.GAMEWIDTH, 1.0, 0.0, octant)
 
     def shadowcast(self, oY, oX, startRow, rows, startSlope, endSlope, octant):
         """Calculates the FOV for one octant of the shadowcasting algorithm"""
@@ -248,7 +245,7 @@ class Player(Entity):
                         # Start child scan if not previously blocked
                         if not blocked:
                             self.shadowcast(self.y, self.x, row+1, \
-                                            self.game.GAMEWIDTH - row, \
+                                            Constants.GAMEWIDTH - row, \
                                             startSlope, leftSlope, octant)
                         lastRightSlope = rightSlope
                         blocked = True
