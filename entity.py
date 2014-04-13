@@ -7,7 +7,7 @@ from plan import Plan
 
 from constants import Constants
 
-from behaviours import DefaultBehaviour
+from behaviours import DefaultBehaviour, Dead
 
 class Entity(object):
     """The base entity object, for players and NPCs"""
@@ -274,11 +274,18 @@ class NPC(Entity):
         self.square = None
         self.plan = Plan(self)
         self.currentBehaviour = DefaultBehaviour(self)
+        self.alive = True
+        self.killer = False
 
         # Emotions and states
         # TODO: Something with this?
         self.scared = False
         self.answeringDoor = False
+
+    def die(self):
+        self.alive = False
+        self.character = '%'
+        self.currentBehaviour = Dead(self)
 
     def isAtHome(self):
         # If we need to know that the NPC is at home, regardless of their
@@ -291,50 +298,52 @@ class NPC(Entity):
             return isInX and isInY
 
     def update(self):
-        # Move randomly, or sometimes actually pick a place to go and go there!
-        # If we have a plan and we're not otherwise occupied (to do), execute it
-        self.plan.checkForAndExecutePlanEntry()
+        """If the NPC is alive, carry out their Plan and Behavaiour"""
+        if self.alive:
+            # Move randomly, or sometimes actually pick a place to go and go there!
+            # If we have a plan and we're not otherwise occupied (to do), execute it
+            self.plan.checkForAndExecutePlanEntry()
 
-        # Once we've decided on a plan (or have no plan), the NPC should first
-        # go to anywhere they're planning on being before performing their status
-        # action.
+            # Once we've decided on a plan (or have no plan), the NPC should first
+            # go to anywhere they're planning on being before performing their 
+            # status action.
 
-        if self.path:
-            (nextY, nextX) = self.path[0]
-            # The algorithm will have avoided walls and fences,
-            # so the only obstructions will be the player, doors and NPCs
-            blockedByEntity = False
-            blockedByDoor = False
-            # Check for player..
-            if (self.game.player.y, self.game.player.x) == (nextY, nextX):
-                blockedByEntity = True
-            # Check for NPC..
-            if Constants.NPC_ON_NPC_COLLISIONS:
-                for npc in self.game.npcs:
-                    if npc is not self:
-                        if (npc.y, npc.x) == (nextY, nextX):
-                            blockedByEntity = True
-            # Check for Door..
-            if (nextY, nextX) in self.game.doors:
-                door = self.game.doors[(nextY, nextX)]
-                if door.closed:
-                    blockedByDoor = True
-                    door.npcOpen()
-            if (not blockedByEntity) and (not blockedByDoor):
-                (self.y, self.x) = (nextY, nextX)
-                self.path.pop(0)
-        else:
-            if Constants.PATHFINDING_DEBUG:
-                randnum = random.randint(1, 30)
-                if randnum == 25:
-                    targetX = targetY = 0
-                    while True:
-                        targetX = random.randint(1, Constants.MAPWIDTH)
-                        targetY = random.randint(1, Constants.MAPHEIGHT)
-                        if (targetY, targetX) not in self.game.walls:
-                            break
-                    self.path = self.findPath(targetY, targetX)
-            self.currentBehaviour.execute()
+            if self.path and self.alive:
+                (nextY, nextX) = self.path[0]
+                # The algorithm will have avoided walls and fences,
+                # so the only obstructions will be the player, doors and NPCs
+                blockedByEntity = False
+                blockedByDoor = False
+                # Check for player..
+                if (self.game.player.y, self.game.player.x) == (nextY, nextX):
+                    blockedByEntity = True
+                # Check for NPC..
+                if Constants.NPC_ON_NPC_COLLISIONS:
+                    for npc in self.game.npcs:
+                        if npc is not self:
+                            if (npc.y, npc.x) == (nextY, nextX):
+                                blockedByEntity = True
+                # Check for Door..
+                if (nextY, nextX) in self.game.doors:
+                    door = self.game.doors[(nextY, nextX)]
+                    if door.closed:
+                        blockedByDoor = True
+                        door.npcOpen()
+                if (not blockedByEntity) and (not blockedByDoor):
+                    (self.y, self.x) = (nextY, nextX)
+                    self.path.pop(0)
+            else:
+                if Constants.PATHFINDING_DEBUG:
+                    randnum = random.randint(1, 30)
+                    if randnum == 25:
+                        targetX = targetY = 0
+                        while True:
+                            targetX = random.randint(1, Constants.MAPWIDTH)
+                            targetY = random.randint(1, Constants.MAPHEIGHT)
+                            if (targetY, targetX) not in self.game.walls:
+                                break
+                        self.path = self.findPath(targetY, targetX)
+                self.currentBehaviour.execute()
 
     def findPath(self, targetY, targetX):
         """A big ol' ripoff of the A* algorithm"""

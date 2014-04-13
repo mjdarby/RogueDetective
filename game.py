@@ -112,6 +112,9 @@ class Game:
         # Town creation
         self.town = Town(self, 5, 5, 3, 3)
         
+        # Setup the murder..
+        self.murderSetup()
+
         # Put together the NPC schedules
         self.generatePlans()
 
@@ -469,16 +472,33 @@ class Game:
             elif key == InputActions.WAIT:
                 actionTaken = True # Do nothing.
 
+    def murderSetup(self):
+        """Picks the victim and murderer, and kills the victim"""
+        victimIdx = random.randint(0, len(self.npcs) - 1)
+        killerIdx = None
+        while True:
+            killerIdx = random.randint(0, len(self.npcs) - 1)
+            if killerIdx is not victimIdx:
+                break
+        self.npcs[victimIdx].die()
+        self.npcs[killerIdx].killer = True
+
     def generatePlans(self):
         """Generate the initial Plans for all NPCs"""
         # It should be pretty consistent. Like, if an NPC is visiting 
         # another NPC's house, the vistee shouldn't make a plan to go out.
         for npc in self.npcs:
-            for x in range(5):
-                randomSquareIndex = random.randint(0, len(self.squares) - 1)
-                visitNeighbour = Plan.VisitNeighbour(npc, randomSquareIndex)
-                randomHour = random.randint(0, 8) + 8
-                npc.plan.addPlanEntry(randomHour, 0, visitNeighbour)
+            if npc.alive:
+                for x in range(5):
+                    randomSquareIndex = None
+                    while True:
+                        # Don't visit the dead guy, that's morbid
+                        randomSquareIndex = random.randint(0, len(self.squares) - 1)
+                        if self.squares[randomSquareIndex].npc.alive:
+                            break
+                    visitNeighbour = Plan.VisitNeighbour(npc, randomSquareIndex)
+                    randomHour = random.randint(0, 8) + 8
+                    npc.plan.addPlanEntry(randomHour, 0, visitNeighbour)
 
     def logic(self):
         """Run all the assorted logic for all entities and advance the clock"""

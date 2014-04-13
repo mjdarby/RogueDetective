@@ -26,6 +26,7 @@ class Town(object):
             self.house = None
             self.houseYOffset = 0
             self.houseXOffset = 0
+            self.npc = None
 
         def generateHouse(self):
             """Actually builds the house and fences, creates the NPC owner."""
@@ -63,6 +64,7 @@ class Town(object):
                          self.y + yOffset + npcYOffset,
                          self.x + xOffset + npcXOffset)
             newNpc.square = self
+            self.npc = newNpc
 
             self.game.npcs.append(newNpc)
 

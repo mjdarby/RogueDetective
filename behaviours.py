@@ -26,6 +26,15 @@ class DefaultBehaviour(Behaviour):
         """Move randomly!"""
         self.npc.attemptMove(random.randint(1,5))
 
+class Dead(Behaviour):
+    """Do nothing. Seriously, what do you expect a corpse to do?"""
+    def __init__(self, npc):
+        super(Dead, self).__init__(npc)
+
+    def execute(self):
+        self.npc.character = '%'
+        return True
+
 class VisitingHouse(Behaviour):
     """Behaviour when visiting a neighbour's house (or indeed, staying in)"""
     def __init__(self, npc, house):
