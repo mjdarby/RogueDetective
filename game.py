@@ -124,6 +124,8 @@ class Game:
         # Don't judge me!
         for (y, x) in self.walls:
             wall = self.walls[(y, x)]
+            if wall.character.isdigit():
+                continue
             wallUp = wallDown = wallLeft = wallRight = False
             # Check for walls via worst method possible
             try:

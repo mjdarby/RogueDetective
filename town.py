@@ -65,6 +65,7 @@ class Town(object):
                          self.x + xOffset + npcXOffset)
             newNpc.square = self
             self.npc = newNpc
+            self.npc.character = str(len(self.game.npcs))
 
             self.game.npcs.append(newNpc)
 
@@ -293,12 +294,18 @@ class House(object):
 
     def generateFrontDoor(self):
         """Create the front door"""
+        # Actual door creation
         doorX = random.randint(1,self.width-1)
         if (self.height-1, doorX) in self.walls:
             doorX -= 1
         self.doors[(self.height, doorX)] = Door(self.game, self.height, doorX)
         self.doors[(self.height, doorX)].locked = Constants.FRONT_DOORS_LOCKED
         self.frontDoorPos = (self.height, doorX)
+
+        # The house number sign
+        sign = self.walls[(self.height, doorX - 1)]
+        sign.character = str(len(self.game.npcs))
+        sign.colour = Constants.COLOUR_GREEN
 
     def generateDoors(self):
         """Make the doors for the house"""
@@ -310,7 +317,7 @@ class House(object):
         self.absoluteY = y
         # Build the walls..
         for (y1, x1) in self.walls:
-            self.game.walls[(y+y1), (x+x1)] = Wall()
+            self.game.walls[(y+y1), (x+x1)] = self.walls[(y1, x1)]
 
         # Floors..
         for (y1, x1) in self.decorations:
