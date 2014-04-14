@@ -471,9 +471,19 @@ class Game:
             y = random.randint(house.absoluteY + 1, 
                                house.absoluteY + house.height - 1)
             x = random.randint(house.absoluteX + 1, 
-                               house.absoluteX + house.height - 1)
+                               house.absoluteX + house.width - 1)
             police = Police(self, y, x)
             self.police.append(police)
+
+        # Put the player outside the dead guy's house
+        self.player.y = house.absoluteY + house.frontDoorPos[0] + 1
+        self.player.x = house.absoluteX + house.frontDoorPos[1]
+
+        # Put an office next to him
+        police = Police(self, self.player.y, self.player.x + 1)
+        self.police.append(police)
+
+        self.printStatus("\"It's a messy one today, boss.\"")
 
     def generatePlans(self):
         """Generate the initial Plans for all NPCs"""
