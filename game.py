@@ -9,7 +9,7 @@ import random, platform
 # Our imports
 from constants import Constants
 from enums import Direction, InputActions, Status
-from entity import Player
+from entity import Player, Police
 from tiles import Decoration, Tile
 from town import Town
 from plan import Plan
@@ -30,6 +30,7 @@ class Game:
         self.decorations = dict()
         self.fences = dict()
         self.npcs = []
+        self.police = []
         self.squares = []
 
         # The current contents of the status line
@@ -197,7 +198,8 @@ class Game:
     def isInCamera(self, cameraY, cameraX, entityY, entityX):
         """ Shouldn't be a class method. Determines if we should draw
         a character or not."""
-        return entityY >= cameraY and entityY <= cameraY + Constants.GAMEHEIGHT and entityX >= cameraX and entityX <= entityX + Constants.GAMEWIDTH
+        return (entityY >= cameraY and entityY <= cameraY + Constants.GAMEHEIGHT 
+                and entityX >= cameraX and entityX <= entityX + Constants.GAMEWIDTH)
 
     def draw(self):
         """ Draw it all, but only the stuff that would be on the screen"""
@@ -220,28 +222,44 @@ class Game:
                     continue
 
                 if self.tiles[(y, x)].visible or not Constants.FOV_ENABLED:
-                    self.gameScreen.addstr(y, x, '.', Constants.COLOUR_GREEN)
+                    self.gameScreen.addstr(
+                        y, 
+                        x, 
+                        '.', 
+                        Constants.COLOUR_GREEN)
 
                     if (y, x) in self.decorations:
                         decoration = self.decorations[(y, x)]
-                        self.gameScreen.addstr(y, x, decoration.character, decoration.colour)
+                        self.gameScreen.addstr(y, 
+                                               x, 
+                                               decoration.character, 
+                                               decoration.colour)
 
                     # Fences
                     if (y, x) in self.fences:
                         fence = self.fences[(y, x)]
-                        self.gameScreen.addstr(y, x, fence.character, fence.colour)
+                        self.gameScreen.addstr(y, 
+                                               x, 
+                                               fence.character, 
+                                               fence.colour)
 
                     # Doors
                     if (y, x) in self.doors:
                         door = self.doors[(y, x)]
-                        self.gameScreen.addstr(y, x, door.character, door.colour)
+                        self.gameScreen.addstr(y, 
+                                               x, 
+                                               door.character, 
+                                               door.colour)
 
                 if (self.tiles[(y,x)].seen
                     and (alwaysSeeWalls or self.tiles[(y,x)].visible)
                     or not Constants.FOV_ENABLED):
                     if (y, x) in self.walls:
                         wall = self.walls[(y,x)]
-                        self.gameScreen.addstr(y, x, wall.character, wall.colour)
+                        self.gameScreen.addstr(y, 
+                                               x, 
+                                               wall.character, 
+                                               wall.colour)
 
         # Draw the entities like players, NPCs
         for npc in self.npcs:
@@ -249,7 +267,20 @@ class Game:
             if npcPos in self.tiles:
                 tile = self.tiles[npcPos]
                 if tile.visible or not Constants.FOV_ENABLED:
-                    self.gameScreen.addstr(npc.y, npc.x, npc.character, npc.colour)
+                    self.gameScreen.addstr(npc.y, 
+                                           npc.x, 
+                                           npc.character, 
+                                           npc.colour)
+
+        for police in self.police:
+            policePos = (police.y, police.x)
+            if policePos in self.tiles:
+                tile = self.tiles[policePos]
+                if tile.visible or not Constants.FOV_ENABLED:
+                    self.gameScreen.addstr(police.y, 
+                                           police.x, 
+                                           police.character, 
+                                           police.colour)
 
         player = self.player
         self.gameScreen.addstr(player.y, player.x,
@@ -433,6 +464,17 @@ class Game:
         self.npcs[victimIdx].die()
         self.npcs[killerIdx].killer = True
 
+        # Spawn some cops around the dead guy
+        victim = self.npcs[victimIdx]
+        house = victim.square.house
+        for _ in range(0, random.randint(4, 5)):
+            y = random.randint(house.absoluteY + 1, 
+                               house.absoluteY + house.height - 1)
+            x = random.randint(house.absoluteX + 1, 
+                               house.absoluteX + house.height - 1)
+            police = Police(self, y, x)
+            self.police.append(police)
+
     def generatePlans(self):
         """Generate the initial Plans for all NPCs"""
         # It should be pretty consistent. Like, if an NPC is visiting 
@@ -465,6 +507,8 @@ class Game:
 
         for npc in self.npcs:
             npc.update()
+        for police in self.police:
+            police.update()
         for door in self.doors:
             self.doors[door].update()
         self.player.generateFov()

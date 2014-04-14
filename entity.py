@@ -56,6 +56,10 @@ class Entity(object):
             if (npc.y, npc.x) == (candidateY, candidateX):
                 return True
 
+        for police in self.game.police:
+            if (police.y, police.x) == (candidateY, candidateX):
+                return True
+
         if (self.game.player.y, self.game.player.x) == (candidateY, candidateX):
             return True
 
@@ -258,7 +262,6 @@ class Player(Entity):
                 break
 
 ##### NPCS
-
 class NPC(Entity):
     """Super class for all NPCs"""
     def __init__(self, game, y, x):
@@ -395,7 +398,7 @@ class NPC(Entity):
         g_score[(y,x)] = 0
         f_score[(y,x)] = g_score[(y,x)] + sld(y, x, targetY, targetX)
 
-        count = 100000000
+        count = 100000
 
         while openSet and count > 0:
             count -= 1
@@ -421,3 +424,8 @@ class NPC(Entity):
                     if neighbour not in openSet:
                         openSet.append(neighbour)
         return False
+
+class Police(NPC):
+    def __init__(self, game, y, x):
+        super(Police, self).__init__(game, y, x)
+        self.colour = Constants.COLOUR_BLUE
