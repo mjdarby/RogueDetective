@@ -351,6 +351,10 @@ class NPC(Entity):
             """Using Euclidean distance as the heuristic"""
             return ((y1-y2) ** 2) + ((x1-x2) ** 2)
 
+        def manhattan(y1, x1, y2, x2):
+            """Using Manhattan distance as the heuristic"""
+            return (abs(y1 - y2) + abs(x1 - x2))
+
         def nextCurrent(openSet):
             bestNode = (1,1)
             bestScore = None
@@ -396,7 +400,9 @@ class NPC(Entity):
         g_score = {}
         f_score = {}
         g_score[(y,x)] = 0
-        f_score[(y,x)] = g_score[(y,x)] + sld(y, x, targetY, targetX)
+        adjustment = Constants.PATHFINDING_HEURISTIC_ADJUSTMENT
+        heuristicScore = manhattan(y, x, targetY, targetX) * adjustment
+        f_score[(y,x)] = g_score[(y,x)] + heuristicScore
 
         count = 100000
 

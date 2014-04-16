@@ -16,7 +16,8 @@ class InputActions:
     OPEN_DOOR = 5
     QUIT = 6
     KICK_DOOR = 7
-    WAIT = 8
+    LOOK = 8
+    WAIT = 9
 
 class Status:
     """NPC statuses, help define what NPCs are doing when they are

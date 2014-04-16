@@ -38,6 +38,7 @@ class Constants:
     # Other constants
     DOOR_CLOSE_TIME = 10 # Turns before door closes
     TURNS_BETWEEN_MINUTES = 3 # Turns before minute passes
+    PATHFINDING_HEURISTIC_ADJUSTMENT = 1.001 # Shorter paths in open spaces
 
     # Debugging constants
     PATHFINDING_DEBUG = False # Turn on random pathfinding

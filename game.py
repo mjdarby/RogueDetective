@@ -426,6 +426,9 @@ class Game:
             actionTaken = False
         return actionTaken
 
+    def look(self):
+        return True
+
     def handleInput(self):
         """ Wait for the player to press a key, then handle
             input appropriately."""
@@ -450,6 +453,8 @@ class Game:
                 actionTaken = self.openDoor()
             elif key == InputActions.KICK_DOOR:
                 actionTaken = self.kickDoor()
+            elif key == InputActions.LOOK:
+                actionTaken = self.look()
             elif key == InputActions.WAIT:
                 actionTaken = True # Do nothing.
 
