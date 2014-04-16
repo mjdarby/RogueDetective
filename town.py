@@ -33,7 +33,7 @@ class Town(object):
             # Generate the building
             house = House(self.game)
             self.house = house
-            self.house.number = len(self.game.npcs) + 1
+            self.house.number = len(self.game.villagers) + 1
             house.generateLayout(Town.GRID_SIZE, Town.GRID_SIZE)
             yOffset = Town.GRID_SIZE - house.height - 1
             xSpace = Town.GRID_SIZE - house.width - 1
@@ -68,6 +68,7 @@ class Town(object):
             self.npc = newNpc
             self.npc.character = str(self.house.number)
             
+            self.game.villagers.append(newNpc)
             self.game.npcs.append(newNpc)
 
         # Finally, add it to the list of squares

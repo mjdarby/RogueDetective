@@ -64,6 +64,8 @@ class Constants:
     KEYMAP[ord('K')] = InputActions.KICK_DOOR
     KEYMAP[ord('q')] = InputActions.QUIT
 
+    KEYMAP[ord('a')] = InputActions.LOOK
+
     KEYMAP[ord('.')] = InputActions.WAIT
 
     COLOUR_WHITE = None

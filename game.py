@@ -30,6 +30,7 @@ class Game:
         self.decorations = dict()
         self.fences = dict()
         self.npcs = []
+        self.villagers = []
         self.police = []
         self.squares = []
 
@@ -272,16 +273,6 @@ class Game:
                                            npc.character, 
                                            npc.colour)
 
-        for police in self.police:
-            policePos = (police.y, police.x)
-            if policePos in self.tiles:
-                tile = self.tiles[policePos]
-                if tile.visible or not Constants.FOV_ENABLED:
-                    self.gameScreen.addstr(police.y, 
-                                           police.x, 
-                                           police.character, 
-                                           police.colour)
-
         player = self.player
         self.gameScreen.addstr(player.y, player.x,
                                player.character, player.colour)
@@ -328,15 +319,25 @@ class Game:
             cursorY = offset
         self.screen.move(cursorY, cursorX)
 
-    def getKey(self):
+    def moveCursorToEntity(self, entity):
+        """Moves the cursor to an entity"""
+        # It's easier to move the cursor to the player, and then move
+        # it to the NPC relative to the player.
+        self.moveCursorToPlayer()
+        (y, x) = self.screen.getyx()
+        y += entity.y - self.player.y
+        x += entity.x - self.player.x
+        self.screen.move(y, x)
+
+    def getKey(self, acceptedInputs = Constants.KEYMAP.values()):
         """Utility funciton that waits until a valid input has been entered."""
         gotKey = False
         while not gotKey:
-            try:
-                key = Constants.KEYMAP[self.screen.getch()]
+            got = self.screen.getch()
+            if (got in Constants.KEYMAP and
+                Constants.KEYMAP[got] in acceptedInputs):
+                key = Constants.KEYMAP[got]
                 return key
-            except:
-                pass
 
     def getYesNo(self):
         """Utility function for getting 'yes/no' responses."""
@@ -348,12 +349,13 @@ class Game:
                 gotYesNo = True
         return key is ord('y')
 
-    def printStatus(self, status, wait=False):
+    def printStatus(self, status, moveCursor = True):
         """Prints the status line. Also sets it so it doesn't get wiped until next frame"""
         self.statusLine = status
-        self.screen.addstr(0, 0, " " * 50)
+        self.screen.addstr(0, 0, " " * Constants.GAMEWIDTH)
         self.screen.addstr(0, 0, status)
-        self.moveCursorToPlayer()
+        if moveCursor:
+            self.moveCursorToPlayer()
 
     def kickDoor(self):
         """Prompts for direction and attempts to kick down the door there if present."""
@@ -426,16 +428,54 @@ class Game:
             actionTaken = False
         return actionTaken
 
+    def selectVisibleNPC(self):
+        visibleNpcs = [npc for npc in self.npcs 
+                       if self.tiles[npc.y, npc.x].visible]
+        error = "No-one in sight!"
+        
+        npcSelected = None
+        if visibleNpcs:
+            npcIdx = 0
+            while not npcSelected:
+                self.printStatus("Navigate with left and right, cancel with Quit, select with Look.", False)
+                self.moveCursorToEntity(visibleNpcs[npcIdx])
+                key = self.getKey([InputActions.MOVE_LEFT,
+                                   InputActions.MOVE_RIGHT,
+                                   InputActions.LOOK,
+                                   InputActions.QUIT])
+                if key == InputActions.MOVE_LEFT:
+                    npcIdx += 1
+                    if npcIdx >= len(visibleNpcs):
+                        npcIdx = 0
+                elif key == InputActions.MOVE_RIGHT:
+                    npcIdx -= 1
+                    if npcIdx < 0:
+                        npcIdx = len(visibleNpcs) - 1
+                elif key == InputActions.LOOK:
+                    npcSelected = visibleNpcs[npcIdx]
+                elif key == InputActions.QUIT:
+                    break
+        if not npcSelected and visibleNpcs:
+            error = "Cancelled."
+        return (npcSelected, error)
+
     def look(self):
-        return True
+        (npc, error) = self.selectVisibleNPC()
+        if not npc:
+            self.printStatus(error)
+        else:
+            self.printStatus("I see you!")
+        return False
 
     def handleInput(self):
         """ Wait for the player to press a key, then handle
             input appropriately."""
         actionTaken = False
         while not actionTaken:
-            # Update the status line
             key = self.getKey()
+            # Clear the status line
+            self.printStatus("")
+            # Assume guilty until proven innocent.
             actionTaken = True
             # Quit?
             if key == InputActions.QUIT:
@@ -460,17 +500,17 @@ class Game:
 
     def murderSetup(self):
         """Picks the victim and murderer, and kills the victim"""
-        victimIdx = random.randint(0, len(self.npcs) - 1)
+        victimIdx = random.randint(0, len(self.villagers) - 1)
         killerIdx = None
         while True:
-            killerIdx = random.randint(0, len(self.npcs) - 1)
+            killerIdx = random.randint(0, len(self.villagers) - 1)
             if killerIdx is not victimIdx:
                 break
-        self.npcs[victimIdx].die()
-        self.npcs[killerIdx].killer = True
+        self.villagers[victimIdx].die()
+        self.villagers[killerIdx].killer = True
 
         # Spawn some cops around the dead guy
-        victim = self.npcs[victimIdx]
+        victim = self.villagers[victimIdx]
         house = victim.square.house
         for _ in range(0, random.randint(4, 5)):
             y = random.randint(house.absoluteY + 1, 
@@ -478,6 +518,7 @@ class Game:
             x = random.randint(house.absoluteX + 1, 
                                house.absoluteX + house.width - 1)
             police = Police(self, y, x)
+            self.npcs.append(police)
             self.police.append(police)
 
         # Put the player outside the dead guy's house
@@ -486,6 +527,7 @@ class Game:
 
         # Put an office next to him
         police = Police(self, self.player.y, self.player.x + 1)
+        self.npcs.append(police)
         self.police.append(police)
 
         self.printStatus("\"It's a messy one today, boss.\"")
@@ -494,7 +536,7 @@ class Game:
         """Generate the initial Plans for all NPCs"""
         # It should be pretty consistent. Like, if an NPC is visiting 
         # another NPC's house, the vistee shouldn't make a plan to go out.
-        for npc in self.npcs:
+        for npc in self.villagers:
             if npc.alive:
                 for x in range(5):
                     randomSquareIndex = None
@@ -522,8 +564,6 @@ class Game:
 
         for npc in self.npcs:
             npc.update()
-        for police in self.police:
-            police.update()
         for door in self.doors:
             self.doors[door].update()
         self.player.generateFov()
