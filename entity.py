@@ -1,5 +1,8 @@
 # Our entities, the NPCs and Player.
 
+# Python imports
+import random
+
 # Our imports
 from enums import Direction, Gender
 
@@ -8,6 +11,8 @@ from plan import Plan
 from constants import Constants
 
 from behaviours import DefaultBehaviour, Dead
+
+import names
 
 class Entity(object):
     """The base entity object, for players and NPCs"""
@@ -277,9 +282,14 @@ class NPC(Entity):
         self.killer = False
 
         # Fluffy, plot stuff
-        self.name = "Dave"
-        self.gender = Gender.MALE
-        self.description = "very Davelike"
+        self.gender = random.choice([Gender.MALE, Gender.FEMALE])
+        self.firstName = "Dave"
+        if self.gender == Gender.MALE:
+            self.firstName = names.getMaleFirstName()
+        else:
+            self.firstName = names.getFemaleFirstName()
+        self.lastName = names.getLastName()
+        self.description = "They are plain."
 
         # Emotions and states
         # TODO: Something with this?

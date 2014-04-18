@@ -480,7 +480,7 @@ class Game:
         if not npc:
             self.printStatus(error)
         else:
-            status = ("That's " + npc.name + "." + " " + 
+            status = ("That's " + npc.firstName + " " + npc.lastName + "." + " " + 
                       npc.getDescription())
             self.printStatus(status)
         return False
