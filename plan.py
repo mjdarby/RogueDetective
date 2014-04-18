@@ -1,7 +1,6 @@
 # Plans and plan accessories (PlanEntries)
 
 # Our imports
-from enums import Status
 from constants import Constants
 import behaviours # Given the similar names, we should fully reference these
 

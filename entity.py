@@ -1,7 +1,7 @@
 # Our entities, the NPCs and Player.
 
 # Our imports
-from enums import Status, Direction
+from enums import Direction, Gender
 
 from plan import Plan
 
@@ -16,7 +16,6 @@ class Entity(object):
         self.y = 15
         self.character = '@'
         self.game = game
-        self.status = Status.IDLE
 
     def checkObstruction(self, direction = None, steps = 1):
         """Returns true if moving in the given direction isn't allowed"""
@@ -277,6 +276,11 @@ class NPC(Entity):
         self.alive = True
         self.killer = False
 
+        # Fluffy, plot stuff
+        self.name = "Dave"
+        self.gender = Gender.MALE
+        self.description = "very Davelike"
+
         # Emotions and states
         # TODO: Something with this?
         self.scared = False
@@ -423,13 +427,23 @@ class NPC(Entity):
                     nG_score = g_score[neighbour]
                 except:
                     pass
-                if neighbour not in openSet or tentative_g_score < nG_score:
+                if (neighbour not in openSet or 
+                    tentative_g_score < nG_score):
                     came_from[neighbour] = current
                     g_score[neighbour] = tentative_g_score
                     f_score[neighbour] = g_score[neighbour] + sld(neighbour[0], neighbour[1], goal[0], goal[1])
                     if neighbour not in openSet:
                         openSet.append(neighbour)
         return False
+
+    def getDescription(self):
+        "Returns the description, modifying it for special cases"
+        description = self.description
+        if not self.alive:
+            description += ". " + ("He" if self.gender == Gender.MALE
+                                  else "She") + "'s seen better days."
+        return description
+
 
 class Police(NPC):
     def __init__(self, game, y, x):

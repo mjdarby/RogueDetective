@@ -19,10 +19,7 @@ class InputActions:
     LOOK = 8
     WAIT = 9
 
-class Status:
-    """NPC statuses, help define what NPCs are doing when they are
-    otherwise idle (ie. not performing a PlanEntry)"""
-    IDLE = 0
-    STAYING_HOME = 1
-    VISITING_HOUSE = 2
-
+class Gender:
+    """Enum for genders"""
+    MALE = 42
+    FEMALE = 108

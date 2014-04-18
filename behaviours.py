@@ -4,7 +4,7 @@
 import random
 
 # Our imports
-from enums import Status, Direction
+from enums import Direction
 
 class Behaviour(object):
     """The base class for NPC behaviours. Behaviours control NPC behaviour

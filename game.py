@@ -8,7 +8,7 @@ import random, platform
 
 # Our imports
 from constants import Constants
-from enums import Direction, InputActions, Status
+from enums import Direction, InputActions, Gender
 from entity import Player, Police
 from tiles import Decoration, Tile
 from town import Town
@@ -33,6 +33,10 @@ class Game:
         self.villagers = []
         self.police = []
         self.squares = []
+
+        # Camera
+        self.cameraX = 0
+        self.cameraY = 0
 
         # The current contents of the status line
         # TODO: Maybe rename this
@@ -196,11 +200,13 @@ class Game:
             self.draw()
             self.handleInput()
 
-    def isInCamera(self, cameraY, cameraX, entityY, entityX):
+    def isInCamera(self, entityY, entityX):
         """ Shouldn't be a class method. Determines if we should draw
         a character or not."""
-        return (entityY >= cameraY and entityY <= cameraY + Constants.GAMEHEIGHT 
-                and entityX >= cameraX and entityX <= entityX + Constants.GAMEWIDTH)
+        return (entityY >= self.cameraY and 
+                entityY < self.cameraY + Constants.GAMEHEIGHT and 
+                entityX >= self.cameraX and 
+                entityX < self.cameraX + Constants.GAMEWIDTH)
 
     def draw(self):
         """ Draw it all, but only the stuff that would be on the screen"""
@@ -209,17 +215,17 @@ class Game:
         self.gameScreen.erase()
 
         # Sort out the camera
-        cameraX = max(0, self.player.x - Constants.GAMEWIDTH // 2)
-        cameraX = min(cameraX, Constants.MAPWIDTH - Constants.GAMEWIDTH)
-        cameraY = max(0, self.player.y - Constants.GAMEHEIGHT // 2)
-        cameraY = min(cameraY, Constants.MAPHEIGHT - Constants.GAMEHEIGHT)
+        self.cameraX = max(0, self.player.x - Constants.GAMEWIDTH // 2)
+        self.cameraX = min(self.cameraX, Constants.MAPWIDTH - Constants.GAMEWIDTH)
+        self.cameraY = max(0, self.player.y - Constants.GAMEHEIGHT // 2)
+        self.cameraY = min(self.cameraY, Constants.MAPHEIGHT - Constants.GAMEHEIGHT)
         alwaysSeeWalls = False
 
         # Draw the floors, walls, etc.
         # Floors first, then we'll override them
         for x in range(0, Constants.MAPWIDTH):
             for y in range(0, Constants.MAPHEIGHT):
-                if not self.isInCamera(cameraY, cameraX, y, x):
+                if not self.isInCamera(y, x):
                     continue
 
                 if self.tiles[(y, x)].visible or not Constants.FOV_ENABLED:
@@ -267,7 +273,8 @@ class Game:
             npcPos = (npc.y, npc.x)
             if npcPos in self.tiles:
                 tile = self.tiles[npcPos]
-                if tile.visible or not Constants.FOV_ENABLED:
+                if (self.isInCamera(npc.y, npc.x) and 
+                    tile.visible or not Constants.FOV_ENABLED):
                     self.gameScreen.addstr(npc.y, 
                                            npc.x, 
                                            npc.character, 
@@ -292,7 +299,7 @@ class Game:
 
         self.screen.noutrefresh()
 
-        self.gameScreen.noutrefresh(cameraY, cameraX, 1, 1, Constants.GAMEHEIGHT, Constants.GAMEWIDTH)
+        self.gameScreen.noutrefresh(self.cameraY, self.cameraX, 1, 1, Constants.GAMEHEIGHT, Constants.GAMEWIDTH)
 
         self.moveCursorToPlayer()
 
@@ -327,7 +334,12 @@ class Game:
         (y, x) = self.screen.getyx()
         y += entity.y - self.player.y
         x += entity.x - self.player.x
-        self.screen.move(y, x)
+        # It may transpire that we're somehow trying to do 
+        # this for an offscreen dude. Block it for now.
+        try:
+            self.screen.move(y, x)
+        except:
+            pass
 
     def getKey(self, acceptedInputs = Constants.KEYMAP.values()):
         """Utility funciton that waits until a valid input has been entered."""
@@ -339,14 +351,17 @@ class Game:
                 key = Constants.KEYMAP[got]
                 return key
 
-    def getYesNo(self):
+    def getYesNo(self, message = None):
         """Utility function for getting 'yes/no' responses."""
         gotYesNo = False
         key = None
+        if message:
+            self.printStatus(message)
         while not gotYesNo:
             key = self.screen.getch()
             if key is ord('y') or key is ord('n'):
                 gotYesNo = True
+        self.printStatus("")
         return key is ord('y')
 
     def printStatus(self, status, moveCursor = True):
@@ -430,7 +445,8 @@ class Game:
 
     def selectVisibleNPC(self):
         visibleNpcs = [npc for npc in self.npcs 
-                       if self.tiles[npc.y, npc.x].visible]
+                       if self.tiles[npc.y, npc.x].visible and
+                       self.isInCamera(npc.y, npc.x)]
         error = "No-one in sight!"
         
         npcSelected = None
@@ -464,7 +480,9 @@ class Game:
         if not npc:
             self.printStatus(error)
         else:
-            self.printStatus("I see you!")
+            status = ("That's " + npc.name + "." + " " + 
+                      npc.getDescription())
+            self.printStatus(status)
         return False
 
     def handleInput(self):
@@ -479,7 +497,11 @@ class Game:
             actionTaken = True
             # Quit?
             if key == InputActions.QUIT:
-                self.running = False
+                quit = self.getYesNo("Are you sure you want to quit?")
+                if quit:
+                    self.running = False
+                else:
+                    actionTaken = False
             # Move?
             elif key == InputActions.MOVE_LEFT:
                 actionTaken = self.player.attemptMove(Direction.LEFT)
