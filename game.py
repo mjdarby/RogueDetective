@@ -367,7 +367,7 @@ class Game:
     def printStatus(self, status, moveCursor = True):
         """Prints the status line. Also sets it so it doesn't get wiped until next frame"""
         self.statusLine = status
-        self.screen.addstr(0, 0, " " * Constants.GAMEWIDTH)
+        self.screen.addstr(0, 0, " " * Constants.XRES)
         self.screen.addstr(0, 0, status)
         if moveCursor:
             self.moveCursorToPlayer()

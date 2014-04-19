@@ -289,7 +289,10 @@ class NPC(Entity):
         else:
             self.firstName = names.getFemaleFirstName()
         self.lastName = names.getLastName()
-        self.description = "They are plain."
+
+        self.eyeColour = random.choice(["green", "blue", "brown"])
+        self.hairColour = random.choice(["brown", "red", "blonde"])
+        self.description = "They are have " + self.eyeColour + " eyes and " + self.hairColour + " hair."
 
         # Emotions and states
         # TODO: Something with this?
@@ -450,7 +453,7 @@ class NPC(Entity):
         "Returns the description, modifying it for special cases"
         description = self.description
         if not self.alive:
-            description += ". " + ("He" if self.gender == Gender.MALE
+            description += " " + ("He" if self.gender == Gender.MALE
                                   else "She") + "'s seen better days."
         return description
 
