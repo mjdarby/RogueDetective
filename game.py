@@ -4,7 +4,7 @@
 import curses
 
 # Python imports
-import random, platform
+import random, platform, textwrap
 
 # Our imports
 from constants import Constants
@@ -341,6 +341,11 @@ class Game:
         except:
             pass
 
+    def getAnyKey(self):
+        """Utility funciton that waits until a ANY input has been entered,
+        does not return anything."""
+        self.screen.getch()
+        
     def getKey(self, acceptedInputs = Constants.KEYMAP.values()):
         """Utility funciton that waits until a valid input has been entered."""
         gotKey = False
@@ -365,15 +370,39 @@ class Game:
         return key is ord('y')
 
     def printStatus(self, status, moveCursor = True):
-        """Prints the status line. Also sets it so it doesn't get wiped until next frame"""
+        """Prints the status line. Also sets it so it doesn't get wiped until 
+        next frame"""
         self.statusLine = status
         self.screen.addstr(0, 0, " " * Constants.XRES)
         self.screen.addstr(0, 0, status)
         if moveCursor:
             self.moveCursorToPlayer()
 
+    def printDescription(self, text):
+        """Prints the description in a nice box before re-drawing the game on 
+        closure"""
+        # Prepare the text!
+        wrappedText = textwrap.wrap(text, Constants.DESC_BOX_WIDTH)
+        # Print the top border
+        topBottomBorder = "+" + (Constants.DESC_BOX_WIDTH * "-") + "+"
+        self.screen.addstr(0, 0, topBottomBorder)
+        lineNo = 1
+        # Print the actual text
+        for line in wrappedText:
+            printedLine = "|" + line.ljust(Constants.DESC_BOX_WIDTH) + "|"
+            self.screen.addstr(lineNo, 0, printedLine)
+            lineNo += 1
+        # Bottom border
+        self.screen.addstr(lineNo, 0, topBottomBorder)
+        # Wait for an input
+        self.moveCursorToPlayer()
+        self.getAnyKey()
+        self.printStatus("")
+        self.draw()
+
     def kickDoor(self):
-        """Prompts for direction and attempts to kick down the door there if present."""
+        """Prompts for direction and attempts to kick down the door there if 
+        present."""
         actionTaken = True
         self.printStatus("Which direction?")
         direction = self.screen.getch()
@@ -482,7 +511,7 @@ class Game:
         else:
             status = ("That's " + npc.firstName + " " + npc.lastName + "." + " " + 
                       npc.getDescription())
-            self.printStatus(status)
+            self.printDescription(status)
         return False
 
     def handleInput(self):
