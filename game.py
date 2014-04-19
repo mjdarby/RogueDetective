@@ -64,7 +64,7 @@ class Game:
 
         # Town creation
         self.town = Town(self, 5, 5, 3, 3)
-        
+
         # Setup the murder..
         self.murderSetup()
 
@@ -392,6 +392,11 @@ class Game:
             printedLine = "|" + line.ljust(Constants.DESC_BOX_WIDTH) + "|"
             self.screen.addstr(lineNo, 0, printedLine)
             lineNo += 1
+        self.screen.addstr(lineNo, 0,
+                           "|" +
+                           "<Press any key to continue>".ljust(Constants.DESC_BOX_WIDTH) +
+                           "|")
+        lineNo += 1
         # Bottom border
         self.screen.addstr(lineNo, 0, topBottomBorder)
         # Wait for an input
@@ -551,18 +556,22 @@ class Game:
 
     def murderSetup(self):
         """Picks the victim and murderer, and kills the victim"""
-        victimIdx = random.randint(0, len(self.villagers) - 1)
-        killerIdx = None
+        victim = random.choice(self.villagers)
+        killer = None
         while True:
-            killerIdx = random.randint(0, len(self.villagers) - 1)
-            if killerIdx is not victimIdx:
+            killer = random.choice(self.villagers)
+            if killer is not victim:
                 break
-        self.villagers[victimIdx].die()
-        self.villagers[killerIdx].killer = True
+        victim.die()
+        killer = True
+
+        house = victim.square.house
+        # Unlock the front door
+        doorY = house.absoluteY + house.frontDoorPos[0]
+        doorX = house.absoluteX + house.frontDoorPos[1]
+        self.doors[doorY, doorX].locked = False
 
         # Spawn some cops around the dead guy
-        victim = self.villagers[victimIdx]
-        house = victim.square.house
         for _ in range(0, random.randint(4, 5)):
             y = random.randint(house.absoluteY + 1, 
                                house.absoluteY + house.height - 1)
@@ -593,10 +602,10 @@ class Game:
                     randomSquareIndex = None
                     while True:
                         # Don't visit the dead guy, that's morbid
-                        randomSquareIndex = random.randint(0, len(self.squares) - 1)
-                        if self.squares[randomSquareIndex].npc.alive:
+                        randomSquare = random.choice(self.squares)
+                        if randomSquare.npc.alive:
                             break
-                    visitNeighbour = Plan.VisitNeighbour(npc, randomSquareIndex)
+                    visitNeighbour = Plan.VisitNeighbour(npc, randomSquare)
                     randomHour = random.randint(0, 8) + 8
                     npc.plan.addPlanEntry(randomHour, 0, visitNeighbour)
 

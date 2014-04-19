@@ -28,7 +28,7 @@ class Plan(object):
             if Constants.PARTY_AT_MY_PLACE:
                 self.square = npc.game.squares[0]
             else:
-                self.square = npc.game.squares[square]
+                self.square = square
 
         def action(self):
             house = self.square.house
@@ -37,8 +37,7 @@ class Plan(object):
             targetX = self.square.x + self.square.houseXOffset + house.frontDoorPos[1]
             self.npc.path = self.npc.findPath(targetY, targetX)
             self.npc.currentBehaviour = behaviours.VisitingHouse(self.npc,
-                                                                self.square.house)
-
+                                                                 self.square.house)
             return True
 
     def __init__(self, npc):
