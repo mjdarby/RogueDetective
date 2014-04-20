@@ -369,6 +369,28 @@ class Game:
         self.printStatus("")
         return key is ord('y')
 
+    def printBox(self, text, anyKeyPrompt=False):
+        """Prints a box on the screen. Caller is responsible for clearing screen afterwards."""
+        # Prepare the text!
+        wrappedText = textwrap.wrap(text, Constants.DESC_BOX_WIDTH)
+        # Print the top border
+        topBottomBorder = "+" + (Constants.DESC_BOX_WIDTH * "-") + "+"
+        self.screen.addstr(0, 0, topBottomBorder)
+        lineNo = 1
+        # Print the actual text
+        for line in wrappedText:
+            printedLine = "|" + line.ljust(Constants.DESC_BOX_WIDTH) + "|"
+            self.screen.addstr(lineNo, 0, printedLine)
+            lineNo += 1
+        if anyKeyPrompt:
+            self.screen.addstr(lineNo, 0,
+                               "|" +
+                               "<Press any key to continue>".ljust(Constants.DESC_BOX_WIDTH) +
+                               "|")
+            lineNo += 1
+        # Bottom border
+        self.screen.addstr(lineNo, 0, topBottomBorder)
+
     def printStatus(self, status, moveCursor = True):
         """Prints the status line. Also sets it so it doesn't get wiped until 
         next frame"""
@@ -381,24 +403,9 @@ class Game:
     def printDescription(self, text):
         """Prints the description in a nice box before re-drawing the game on 
         closure"""
-        # Prepare the text!
-        wrappedText = textwrap.wrap(text, Constants.DESC_BOX_WIDTH)
-        # Print the top border
-        topBottomBorder = "+" + (Constants.DESC_BOX_WIDTH * "-") + "+"
-        self.screen.addstr(0, 0, topBottomBorder)
-        lineNo = 1
-        # Print the actual text
-        for line in wrappedText:
-            printedLine = "|" + line.ljust(Constants.DESC_BOX_WIDTH) + "|"
-            self.screen.addstr(lineNo, 0, printedLine)
-            lineNo += 1
-        self.screen.addstr(lineNo, 0,
-                           "|" +
-                           "<Press any key to continue>".ljust(Constants.DESC_BOX_WIDTH) +
-                           "|")
-        lineNo += 1
-        # Bottom border
-        self.screen.addstr(lineNo, 0, topBottomBorder)
+        # Print the text
+        showAnyKeyPrompt = True
+        self.printBox(text, showAnyKeyPrompt)
         # Wait for an input
         self.moveCursorToPlayer()
         self.getAnyKey()

@@ -17,31 +17,16 @@ class Town(object):
 
     class Square(object):
         """A plot of land owned by an NPC. Contains a house."""
-        def __init__(self, game, y, x, heightIdx, widthIdx):
+        def __init__(self, game, y, x):
             self.y = y
             self.x = x
             self.game = game
-            self.heightIdx = heightIdx
-            self.widthIdx = widthIdx
             self.house = None
             self.houseYOffset = 0
             self.houseXOffset = 0
             self.npc = None
 
-        def generateHouse(self):
-            """Actually builds the house and fences, creates the NPC owner."""
-            # Generate the building
-            house = House(self.game)
-            self.house = house
-            self.house.number = len(self.game.villagers) + 1
-            house.generateLayout(Town.GRID_SIZE, Town.GRID_SIZE)
-            yOffset = Town.GRID_SIZE - house.height - 1
-            xSpace = Town.GRID_SIZE - house.width - 1
-            xOffset = random.randint(0, xSpace)
-            house.createHouse(self.y + yOffset, self.x + xOffset)
-            self.houseYOffset = yOffset
-            self.houseXOffset = xOffset
-
+        def generateFences(self):
             # Generate the fences
             for y in range(Town.GRID_SIZE):
                 if (y + self.y, self.x) not in self.game.walls:
@@ -54,6 +39,22 @@ class Town(object):
                 if (self.y + Town.GRID_SIZE - 1, x + self.x) not in self.game.walls \
                    and (self.y + Town.GRID_SIZE -1, x + self.x) not in self.game.doors:
                     self.game.fences[(self.y + Town.GRID_SIZE - 1, x + self.x)] = Fence()
+
+        def generateHouse(self):
+            """Actually builds the house and fences"""
+            # Generate the building
+            house = House(self.game)
+            self.house = house
+            self.house.number = len(self.game.villagers) + 1
+            house.generateLayout(Town.GRID_SIZE, Town.GRID_SIZE)
+            yOffset = Town.GRID_SIZE - house.height - 1
+            xSpace = Town.GRID_SIZE - house.width - 1
+            xOffset = random.randint(0, xSpace)
+            house.createHouse(self.y + yOffset, self.x + xOffset)
+            self.houseYOffset = yOffset
+            self.houseXOffset = xOffset
+
+            self.generateFences()
 
             # NPC owners! Woohoo! Spawn them inside the house, but not in a wall
             npcYOffset = 0
@@ -90,21 +91,26 @@ class Town(object):
     def createRoads(self):
         """Actually make the roads"""
         for (y1, x1) in self.roads:
-            self.game.decorations[(self.y+y1), (self.x+x1)] = self.roads[y1, x1]
+            self.game.decorations[(self.y + y1), (self.x + x1)] = self.roads[y1, x1]
 
-    def generateRoads(self, heightIdx, widthIdx):
+    def generateRoads(self):
         """Create roads for given grid square"""
-        baseY = heightIdx * (Town.GRID_SIZE + Town.ROAD_HEIGHT)
-        baseX = widthIdx * (Town.GRID_SIZE + Town.ROAD_WIDTH)
-        road = Decoration()
-        road.character = '#'
-        road.colour = Constants.COLOUR_YELLOW
-        for roadX in range(Town.GRID_SIZE + Town.ROAD_WIDTH - 1):
-            for width in range(Town.ROAD_WIDTH):
-                self.roads[(baseY + roadX, baseX + Town.GRID_SIZE + width)] = road
-        for roadX in range(Town.GRID_SIZE + Town.ROAD_HEIGHT):
-            for width in range(Town.ROAD_HEIGHT):
-                self.roads[(baseY + Town.GRID_SIZE + width, baseX + roadX)] = road
+        for y in range(self.height):
+            for x in range(self.width):
+                square = self.squares[(y,x)]
+                # We'd like self.roads to be relative to the Town position, hence
+                # the subtractions.
+                baseY = square.y - self.y
+                baseX = square.x - self.x
+                road = Decoration()
+                road.character = '#'
+                road.colour = Constants.COLOUR_YELLOW
+                for roadX in range(Town.GRID_SIZE + Town.ROAD_WIDTH - 1):
+                    for width in range(Town.ROAD_WIDTH):
+                        self.roads[(baseY + roadX, baseX + Town.GRID_SIZE + width)] = road
+                for roadX in range(Town.GRID_SIZE + Town.ROAD_HEIGHT):
+                    for width in range(Town.ROAD_HEIGHT):
+                        self.roads[(baseY + Town.GRID_SIZE + width, baseX + roadX)] = road
 
     def generateGrid(self):
         """Generate the grids + roads + houses"""
@@ -113,13 +119,13 @@ class Town(object):
             for x in range(self.width):
                 squareX = x * (Town.GRID_SIZE + Town.ROAD_WIDTH) + self.x
                 # Make a square
-                self.squares[(y, x)] = Town.Square(self.game, squareY, squareX, y, x)
+                self.squares[(y,x)] = Town.Square(self.game, squareY, squareX)
                 # For now, put a house in the square
                 self.squares[(y,x)].generateHouse()
-                self.generateRoads(y, x)
+        self.generateRoads()
 
-class House(object):
-    """Houses are procedurally generated constructs in which NPCs live."""
+class Building(object):
+    """Buildings are procedurally generated constructs"""
     MINIMUM_WIDTH = 15
     MINIMUM_HEIGHT = 9
 
@@ -153,6 +159,8 @@ class House(object):
         self.decorations = dict()
         self.doors = dict()
         self.frontDoorPos = (0, 0)
+        self.minNumberOfRooms = 1
+        self.maxNumberOfRooms = 4
         self.game = game
 
     def generateLayout(self, maxHeight, maxWidth):
@@ -243,14 +251,18 @@ class House(object):
     def generateRooms(self):
         """Create the rooms by repeated partitioning"""
         # How many partitions should we make, excluding the first?
-        numPartitions = random.randint(2, 3)
-        self.generateFirstPartition()
+        numPartitions = random.randint(self.minNumberOfRooms, self.maxNumberOfRooms) - 1
+        if numPartitions > 0:
+            self.generateFirstPartition()
+            numPartitions -= 1
+        else:
+            room = House.Room(0, 0, self.height, self.width)
+            self.rooms.append(room)
 
         for _ in range(numPartitions):
             # Get a random room, which we'll partition just like the first room
             attempts = 10
-            randomRoomIndex = random.randint(0, len(self.rooms) - 1)
-            baseRoom = self.rooms[randomRoomIndex]
+            baseRoom = random.choice(self.rooms)
             widthwisePartition = bool(random.getrandbits(1))
 
             # Make sure the room will be able to split. If not, pick a new room up to 10 times.
@@ -348,3 +360,10 @@ class House(object):
     def area(self):
         """Returns the total area required to place house."""
         return self.width * self.height
+
+
+class House(Building):
+    """Houses are procedurally generated constructs in which NPCs live."""
+    def __init__(self, game):
+        super(House, self).__init__(game)
+

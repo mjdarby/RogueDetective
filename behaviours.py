@@ -49,8 +49,7 @@ class VisitingHouse(Behaviour):
         npc = self.npc
         house = self.house
         if moveRoom:
-            randomRoomIdx = random.randint(0, len(house.rooms) - 1)
-            room = house.rooms[randomRoomIdx]
+            room = random.choice(house.rooms)
             randomX = random.randint(1, room.width - 1)
             randomY = random.randint(1, room.height - 1)
             npc.path = npc.findPath(house.absoluteY + room.y + randomY,
