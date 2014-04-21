@@ -27,7 +27,7 @@ class Constants:
     # NB. Must be greater than or equal to the game width/height
     # May remove this restriction later on, but right now breaking it
     # messed with the cursor logic.
-    MAPWIDTH = 78
+    MAPWIDTH = 140
     MAPHEIGHT = 75
 
     # Screen width/height: Size of the curses pad. +1 height because
@@ -66,6 +66,8 @@ class Constants:
     KEYMAP[ord('q')] = InputActions.QUIT
 
     KEYMAP[ord('a')] = InputActions.LOOK
+
+    KEYMAP[ord('t')] = InputActions.TALK
 
     KEYMAP[ord('.')] = InputActions.WAIT
 

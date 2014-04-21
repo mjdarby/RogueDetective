@@ -17,7 +17,8 @@ class InputActions:
     QUIT = 6
     KICK_DOOR = 7
     LOOK = 8
-    WAIT = 9
+    TALK = 9
+    WAIT = 10
 
 class Gender:
     """Enum for genders"""

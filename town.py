@@ -86,7 +86,6 @@ class Town(object):
         self.roads = dict()
 
         self.generateGrid()
-        self.createRoads()
 
     def createRoads(self):
         """Actually make the roads"""
@@ -111,6 +110,7 @@ class Town(object):
                 for roadX in range(Town.GRID_SIZE + Town.ROAD_HEIGHT):
                     for width in range(Town.ROAD_HEIGHT):
                         self.roads[(baseY + Town.GRID_SIZE + width, baseX + roadX)] = road
+        self.createRoads()
 
     def generateGrid(self):
         """Generate the grids + roads + houses"""

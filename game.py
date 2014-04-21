@@ -203,9 +203,9 @@ class Game:
     def isInCamera(self, entityY, entityX):
         """ Shouldn't be a class method. Determines if we should draw
         a character or not."""
-        return (entityY >= self.cameraY and 
-                entityY < self.cameraY + Constants.GAMEHEIGHT and 
-                entityX >= self.cameraX and 
+        return (entityY >= self.cameraY and
+                entityY < self.cameraY + Constants.GAMEHEIGHT and
+                entityX >= self.cameraX and
                 entityX < self.cameraX + Constants.GAMEWIDTH)
 
     def draw(self):
@@ -230,32 +230,32 @@ class Game:
 
                 if self.tiles[(y, x)].visible or not Constants.FOV_ENABLED:
                     self.gameScreen.addstr(
-                        y, 
-                        x, 
-                        '.', 
+                        y,
+                        x,
+                        '.',
                         Constants.COLOUR_GREEN)
 
                     if (y, x) in self.decorations:
                         decoration = self.decorations[(y, x)]
-                        self.gameScreen.addstr(y, 
-                                               x, 
-                                               decoration.character, 
+                        self.gameScreen.addstr(y,
+                                               x,
+                                               decoration.character,
                                                decoration.colour)
 
                     # Fences
                     if (y, x) in self.fences:
                         fence = self.fences[(y, x)]
-                        self.gameScreen.addstr(y, 
-                                               x, 
-                                               fence.character, 
+                        self.gameScreen.addstr(y,
+                                               x,
+                                               fence.character,
                                                fence.colour)
 
                     # Doors
                     if (y, x) in self.doors:
                         door = self.doors[(y, x)]
-                        self.gameScreen.addstr(y, 
-                                               x, 
-                                               door.character, 
+                        self.gameScreen.addstr(y,
+                                               x,
+                                               door.character,
                                                door.colour)
 
                 if (self.tiles[(y,x)].seen
@@ -263,9 +263,9 @@ class Game:
                     or not Constants.FOV_ENABLED):
                     if (y, x) in self.walls:
                         wall = self.walls[(y,x)]
-                        self.gameScreen.addstr(y, 
-                                               x, 
-                                               wall.character, 
+                        self.gameScreen.addstr(y,
+                                               x,
+                                               wall.character,
                                                wall.colour)
 
         # Draw the entities like players, NPCs
@@ -273,11 +273,11 @@ class Game:
             npcPos = (npc.y, npc.x)
             if npcPos in self.tiles:
                 tile = self.tiles[npcPos]
-                if (self.isInCamera(npc.y, npc.x) and 
+                if (self.isInCamera(npc.y, npc.x) and
                     tile.visible or not Constants.FOV_ENABLED):
-                    self.gameScreen.addstr(npc.y, 
-                                           npc.x, 
-                                           npc.character, 
+                    self.gameScreen.addstr(npc.y,
+                                           npc.x,
+                                           npc.character,
                                            npc.colour)
 
         player = self.player
@@ -319,7 +319,7 @@ class Game:
         maxCameraX = Constants.MAPWIDTH - Constants.GAMEWIDTH // 2 - 1
         maxCameraY = Constants.MAPHEIGHT - Constants.GAMEHEIGHT // 2  - 1
         if self.player.x > maxCameraX:
-            offset = (self.player.x - maxCameraX) + Constants.GAMEWIDTH // 2
+            offset = self.player.x - maxCameraX + Constants.GAMEWIDTH // 2
             cursorX = offset
         if self.player.y > maxCameraY:
             offset = self.player.y - maxCameraY + Constants.GAMEHEIGHT // 2 + 1
@@ -334,7 +334,7 @@ class Game:
         (y, x) = self.screen.getyx()
         y += entity.y - self.player.y
         x += entity.x - self.player.x
-        # It may transpire that we're somehow trying to do 
+        # It may transpire that we're somehow trying to do
         # this for an offscreen dude. Block it for now.
         try:
             self.screen.move(y, x)
@@ -345,7 +345,7 @@ class Game:
         """Utility funciton that waits until a ANY input has been entered,
         does not return anything."""
         self.screen.getch()
-        
+
     def getKey(self, acceptedInputs = Constants.KEYMAP.values()):
         """Utility funciton that waits until a valid input has been entered."""
         gotKey = False
@@ -392,7 +392,7 @@ class Game:
         self.screen.addstr(lineNo, 0, topBottomBorder)
 
     def printStatus(self, status, moveCursor = True):
-        """Prints the status line. Also sets it so it doesn't get wiped until 
+        """Prints the status line. Also sets it so it doesn't get wiped until
         next frame"""
         self.statusLine = status
         self.screen.addstr(0, 0, " " * Constants.XRES)
@@ -401,7 +401,7 @@ class Game:
             self.moveCursorToPlayer()
 
     def printDescription(self, text):
-        """Prints the description in a nice box before re-drawing the game on 
+        """Prints the description in a nice box before re-drawing the game on
         closure"""
         # Print the text
         showAnyKeyPrompt = True
@@ -413,7 +413,7 @@ class Game:
         self.draw()
 
     def kickDoor(self):
-        """Prompts for direction and attempts to kick down the door there if 
+        """Prompts for direction and attempts to kick down the door there if
         present."""
         actionTaken = True
         self.printStatus("Which direction?")
@@ -452,7 +452,19 @@ class Game:
             self.printStatus("Nevermind.")
             actionTaken = False
         return actionTaken
-        
+
+    def talk(self):
+        """Prompts for direction and talks to NPC in that direction if
+        present."""
+        promptText = "Navigate with left and right, cancel with Quit, select with Talk"
+        (npc, error) = self.selectVisibleNPC(promptText, InputActions.TALK)
+        if not npc:
+            self.printStatus(error)
+            return False
+        else:
+            self.printDescription("Yesss.")
+            return True
+
     def openDoor(self):
         self.printStatus("Which direction?")
         direction = self.screen.getch()
@@ -484,21 +496,20 @@ class Game:
             actionTaken = False
         return actionTaken
 
-    def selectVisibleNPC(self):
-        visibleNpcs = [npc for npc in self.npcs 
+    def selectVisibleNPC(self, promptText, selectionAction):
+        visibleNpcs = [npc for npc in self.npcs
                        if self.tiles[npc.y, npc.x].visible and
                        self.isInCamera(npc.y, npc.x)]
         error = "No-one in sight!"
-        
         npcSelected = None
         if visibleNpcs:
             npcIdx = 0
             while not npcSelected:
-                self.printStatus("Navigate with left and right, cancel with Quit, select with Look.", False)
+                self.printStatus(promptText, False)
                 self.moveCursorToEntity(visibleNpcs[npcIdx])
                 key = self.getKey([InputActions.MOVE_LEFT,
                                    InputActions.MOVE_RIGHT,
-                                   InputActions.LOOK,
+                                   selectionAction,
                                    InputActions.QUIT])
                 if key == InputActions.MOVE_LEFT:
                     npcIdx += 1
@@ -508,7 +519,7 @@ class Game:
                     npcIdx -= 1
                     if npcIdx < 0:
                         npcIdx = len(visibleNpcs) - 1
-                elif key == InputActions.LOOK:
+                elif key == selectionAction:
                     npcSelected = visibleNpcs[npcIdx]
                 elif key == InputActions.QUIT:
                     break
@@ -517,11 +528,12 @@ class Game:
         return (npcSelected, error)
 
     def look(self):
-        (npc, error) = self.selectVisibleNPC()
+        promptText = "Navigate with left and right, cancel with Quit, select with Look"
+        (npc, error) = self.selectVisibleNPC(promptText, InputActions.LOOK)
         if not npc:
             self.printStatus(error)
         else:
-            status = ("That's " + npc.firstName + " " + npc.lastName + "." + " " + 
+            status = ("That's " + npc.firstName + " " + npc.lastName + "." + " " +
                       npc.getDescription())
             self.printDescription(status)
         return False
@@ -558,6 +570,8 @@ class Game:
                 actionTaken = self.kickDoor()
             elif key == InputActions.LOOK:
                 actionTaken = self.look()
+            elif key == InputActions.TALK:
+                actionTaken = self.talk()
             elif key == InputActions.WAIT:
                 actionTaken = True # Do nothing.
 
@@ -580,9 +594,9 @@ class Game:
 
         # Spawn some cops around the dead guy
         for _ in range(0, random.randint(4, 5)):
-            y = random.randint(house.absoluteY + 1, 
+            y = random.randint(house.absoluteY + 1,
                                house.absoluteY + house.height - 1)
-            x = random.randint(house.absoluteX + 1, 
+            x = random.randint(house.absoluteX + 1,
                                house.absoluteX + house.width - 1)
             police = Police(self, y, x)
             self.npcs.append(police)
@@ -601,7 +615,7 @@ class Game:
 
     def generatePlans(self):
         """Generate the initial Plans for all NPCs"""
-        # It should be pretty consistent. Like, if an NPC is visiting 
+        # It should be pretty consistent. Like, if an NPC is visiting
         # another NPC's house, the vistee shouldn't make a plan to go out.
         for npc in self.villagers:
             if npc.alive:
