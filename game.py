@@ -400,12 +400,19 @@ class Game:
         if moveCursor:
             self.moveCursorToPlayer()
 
-    def printDescription(self, text):
+    def printDescription(self, text, showAnyKeyPrompt = True):
         """Prints the description in a nice box before re-drawing the game on
         closure"""
         # Print the text
-        showAnyKeyPrompt = True
         self.printBox(text, showAnyKeyPrompt)
+        # Wait for an input
+        self.moveCursorToPlayer()
+        self.getAnyKey()
+        self.printStatus("")
+        self.draw()
+
+    def printDialogueChoice(self, text):
+        self.printBox(text, False)
         # Wait for an input
         self.moveCursorToPlayer()
         self.getAnyKey()
@@ -462,7 +469,7 @@ class Game:
             self.printStatus(error)
             return False
         else:
-            self.printDescription("Yesss.")
+            self.printDialogueChoice("Yesss.")
             return True
 
     def openDoor(self):
