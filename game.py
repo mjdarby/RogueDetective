@@ -356,6 +356,15 @@ class Game:
                 key = Constants.KEYMAP[got]
                 return key
 
+    def getDialogueChoice(self, numberOfChoices):
+        """Utility funciton that waits until a valid dialogue choice has
+        been entered."""
+        gotKey = False
+        while not gotKey:
+            got = self.screen.getch()
+            if (got >= ord('1') and got <= ord(str(numberOfChoices))):
+                return int(chr(got))
+
     def getYesNo(self, message = None):
         """Utility function for getting 'yes/no' responses."""
         gotYesNo = False
@@ -418,11 +427,7 @@ class Game:
         choices = [str(idx+1) + ") " + choice for (idx, choice) in choices]
         text = ("\n".join(choices)).splitlines()
         self.printBox(text, False)
-        # Wait for an input
         self.moveCursorToPlayer()
-        self.getAnyKey()
-        self.printStatus("")
-        self.draw()
 
     def kickDoor(self):
         """Prompts for direction and attempts to kick down the door there if
@@ -474,9 +479,22 @@ class Game:
             self.printStatus(error)
             return False
         else:
-            testChoices = ["Hello!", "My name is Kate!", "What's your name?"]
-            self.printDialogueChoices(testChoices)
+            self.beginConversation(npc)
             return True
+
+    def beginConversation(self, npc):
+        testChoices = ["Hello!", "My name is Kate!", "What's your name?"]
+        self.printDialogueChoices(testChoices)
+        choice = self.getDialogueChoice(len(testChoices))
+        self.draw()
+        if choice == 1:
+            self.printDescription("Why, hello to you too!")
+        elif choice == 2:
+            self.printDescription("That's MY name!")
+        elif choice == 3:
+            self.printDescription("It's Dave Daveington.")
+        else:
+            self.printDescription("Whoops, I can't code" + str(choice))
 
     def openDoor(self):
         self.printStatus("Which direction?")
