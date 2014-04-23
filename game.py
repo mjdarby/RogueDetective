@@ -369,10 +369,12 @@ class Game:
         self.printStatus("")
         return key is ord('y')
 
-    def printBox(self, text, anyKeyPrompt=False):
+    def printBox(self, paragraphs, anyKeyPrompt=False):
         """Prints a box on the screen. Caller is responsible for clearing screen afterwards."""
         # Prepare the text!
-        wrappedText = textwrap.wrap(text, Constants.DESC_BOX_WIDTH)
+        wrappedText = []
+        for paragraph in paragraphs:
+            wrappedText += textwrap.wrap(paragraph, Constants.DESC_BOX_WIDTH)
         # Print the top border
         topBottomBorder = "+" + (Constants.DESC_BOX_WIDTH * "-") + "+"
         self.screen.addstr(0, 0, topBottomBorder)
@@ -404,14 +406,17 @@ class Game:
         """Prints the description in a nice box before re-drawing the game on
         closure"""
         # Print the text
-        self.printBox(text, showAnyKeyPrompt)
+        self.printBox([text], showAnyKeyPrompt)
         # Wait for an input
         self.moveCursorToPlayer()
         self.getAnyKey()
         self.printStatus("")
         self.draw()
 
-    def printDialogueChoice(self, text):
+    def printDialogueChoices(self, choices):
+        choices = zip(range(0, len(choices)), choices)
+        choices = [str(idx+1) + ") " + choice for (idx, choice) in choices]
+        text = ("\n".join(choices)).splitlines()
         self.printBox(text, False)
         # Wait for an input
         self.moveCursorToPlayer()
@@ -469,7 +474,8 @@ class Game:
             self.printStatus(error)
             return False
         else:
-            self.printDialogueChoice("Yesss.")
+            testChoices = ["Hello!", "My name is Kate!", "What's your name?"]
+            self.printDialogueChoices(testChoices)
             return True
 
     def openDoor(self):
