@@ -276,7 +276,8 @@ class Game:
                 if (self.isInCamera(npc.y, npc.x) and
                     tile.visible or not Constants.FOV_ENABLED):
                     if (npc in self.villagers and
-                        self.player.notebook.isNpcKnown(npc)):
+                        self.player.notebook.isNpcKnown(npc) and
+                        npc.alive):
                         character = str(npc.square.house.number)
                     else:
                         character = npc.character
@@ -486,6 +487,9 @@ class Game:
         (npc, error) = self.selectVisibleNPC(promptText, InputActions.TALK)
         if not npc:
             self.printStatus(error)
+            return False
+        elif not npc.alive:
+            self.printStatus("I don't think they're in a talkative mood.")
             return False
         else:
             self.beginConversation(npc)

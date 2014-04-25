@@ -307,7 +307,7 @@ class NPC(Entity):
 
         self.eyeColour = random.choice(["green", "blue", "brown"])
         self.hairColour = random.choice(["brown", "red", "blonde"])
-        self.description = "They are have " + self.eyeColour + " eyes and " + self.hairColour + " hair."
+        self.description = "They have " + self.eyeColour + " eyes and " + self.hairColour + " hair."
 
         # Emotions and states
         # TODO: Something with this?
