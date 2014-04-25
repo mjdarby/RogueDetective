@@ -275,9 +275,14 @@ class Game:
                 tile = self.tiles[npcPos]
                 if (self.isInCamera(npc.y, npc.x) and
                     tile.visible or not Constants.FOV_ENABLED):
+                    if (npc in self.villagers and
+                        self.player.notebook.isNpcKnown(npc)):
+                        character = str(npc.square.house.number)
+                    else:
+                        character = npc.character
                     self.gameScreen.addstr(npc.y,
                                            npc.x,
-                                           npc.character,
+                                           character,
                                            npc.colour)
 
         player = self.player
@@ -422,10 +427,14 @@ class Game:
         self.printStatus("")
         self.draw()
 
-    def printDialogueChoices(self, choices):
+    def printDialogueChoices(self, choices, npcName = None):
         choices = zip(range(0, len(choices)), choices)
         choices = [str(idx+1) + ") " + choice for (idx, choice) in choices]
         text = ("\n".join(choices)).splitlines()
+        if npcName:
+            header = "Talking to " + npcName
+            text.insert(0, '-' * len(header))
+            text.insert(0, header)
         self.printBox(text, False)
         self.moveCursorToPlayer()
 
@@ -483,18 +492,33 @@ class Game:
             return True
 
     def beginConversation(self, npc):
-        testChoices = ["Hello!", "My name is Kate!", "What's your name?"]
-        self.printDialogueChoices(testChoices)
+        testChoices = ["Hello!", "My name is Kate!"]
+        npcName = None
+        if not self.player.notebook.isNpcKnown(npc):
+            testChoices.append("Who are you?")
+        else:
+            npcName = npc.firstName + " " + npc.lastName
+        self.printDialogueChoices(testChoices, npcName)
         choice = self.getDialogueChoice(len(testChoices))
         self.draw()
+        # TODO: If you know the character's name, their name should
+        # appear in the header of the box. Also clean this whole thing
+        # up, man.
         if choice == 1:
             self.printDescription("Why, hello to you too!")
         elif choice == 2:
-            self.printDescription("That's MY name!")
+            self.printDescription("Fascinating.")
         elif choice == 3:
-            self.printDescription("It's Dave Daveington.")
+            description = ("My name is " + npc.firstName + 
+                          " " + npc.lastName + ".")
+            if npc in self.villagers:
+                description += (" I live in house " + 
+                                str(npc.square.house.number) +
+                               ".")
+            self.player.notebook.addToKnownNpcs(npc)
+            self.printDescription(description)
         else:
-            self.printDescription("Whoops, I can't code" + str(choice))
+            self.printDescription("Whoops, I can't code " + str(choice))
 
     def openDoor(self):
         self.printStatus("Which direction?")
@@ -564,8 +588,13 @@ class Game:
         if not npc:
             self.printStatus(error)
         else:
-            status = ("That's " + npc.firstName + " " + npc.lastName + "." + " " +
-                      npc.getDescription())
+            status = ""
+            if self.player.notebook.isNpcKnown(npc):
+                status = ("That's " + npc.firstName + " " + npc.lastName + "." + " " +
+                          npc.getDescription())
+            else:
+                status = "You don't know who that is. " + npc.getDescription()
+
             self.printDescription(status)
         return False
 
@@ -623,24 +652,25 @@ class Game:
         doorX = house.absoluteX + house.frontDoorPos[1]
         self.doors[doorY, doorX].locked = False
 
-        # Spawn some cops around the dead guy
+        # Put the player outside the dead guy's house
+        self.player.y = house.absoluteY + house.frontDoorPos[0] + 1
+        self.player.x = house.absoluteX + house.frontDoorPos[1]
+
+        # Spawn some cops around the dead guy and next to our character
+        copSpawnLocations = [(self.player.y, self.player.x + 1)]
         for _ in range(0, random.randint(4, 5)):
             y = random.randint(house.absoluteY + 1,
                                house.absoluteY + house.height - 1)
             x = random.randint(house.absoluteX + 1,
                                house.absoluteX + house.width - 1)
+            copSpawnLocations.append((y,x))
+
+        for location in copSpawnLocations:
+            (y, x) = location
             police = Police(self, y, x)
             self.npcs.append(police)
             self.police.append(police)
-
-        # Put the player outside the dead guy's house
-        self.player.y = house.absoluteY + house.frontDoorPos[0] + 1
-        self.player.x = house.absoluteX + house.frontDoorPos[1]
-
-        # Put an office next to him
-        police = Police(self, self.player.y, self.player.x + 1)
-        self.npcs.append(police)
-        self.police.append(police)
+            self.player.notebook.addToKnownNpcs(police)
 
         self.printStatus("\"It's a messy one today, boss.\"")
 

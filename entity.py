@@ -145,7 +145,21 @@ class Entity(object):
 
         return moved
 
-#### PLAYER
+#### PLAYER and PLAYER STUFF
+
+class Notebook(object):
+    """Contains all information known to the detective"""
+    def __init__(self):
+        super(Notebook, self).__init__()
+        self.knownNpcs = []
+        self.knownActivities = []
+
+    def addToKnownNpcs(self, npc):
+        if npc not in self.knownNpcs:
+            self.knownNpcs.append(npc)
+
+    def isNpcKnown(self, npc):
+        return npc in self.knownNpcs
 
 class Player(Entity):
     """The player object, containing data such as HP etc."""
@@ -153,6 +167,7 @@ class Player(Entity):
         """Initialise the player object"""
         super(Player, self).__init__(game)
         self.colour = Constants.COLOUR_RED
+        self.notebook = Notebook()
 
     def generateFov(self):
         """Reveals grid squares if they've never been seen before,

@@ -67,7 +67,6 @@ class Town(object):
                          self.x + xOffset + npcXOffset)
             newNpc.square = self
             self.npc = newNpc
-            self.npc.character = str(self.house.number)
             
             self.game.villagers.append(newNpc)
             self.game.npcs.append(newNpc)
