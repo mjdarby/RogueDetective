@@ -417,11 +417,15 @@ class Game:
         if moveCursor:
             self.moveCursorToPlayer()
 
-    def printDescription(self, text, showAnyKeyPrompt = True):
+    def printDescription(self, text, header = None, showAnyKeyPrompt = True):
         """Prints the description in a nice box before re-drawing the game on
         closure"""
         # Print the text
-        self.printBox([text], showAnyKeyPrompt)
+        if header:
+            underline = '-' * Constants.DESC_BOX_WIDTH
+            self.printBox([header, underline, text], showAnyKeyPrompt)
+        else:
+            self.printBox([text], showAnyKeyPrompt)
         # Wait for an input
         self.moveCursorToPlayer()
         self.getAnyKey()
@@ -434,7 +438,7 @@ class Game:
         text = ("\n".join(choices)).splitlines()
         if npcName:
             header = "Talking to " + npcName
-            text.insert(0, '-' * len(header))
+            text.insert(0, '-' * Constants.DESC_BOX_WIDTH)
             text.insert(0, header)
         self.printBox(text, False)
         self.moveCursorToPlayer()
@@ -509,9 +513,9 @@ class Game:
         # appear in the header of the box. Also clean this whole thing
         # up, man.
         if choice == 1:
-            self.printDescription("Why, hello to you too!")
+            self.printDescription("Why, hello to you too!", npcName)
         elif choice == 2:
-            self.printDescription("Fascinating.")
+            self.printDescription("Fascinating.", npcName)
         elif choice == 3:
             description = ("My name is " + npc.firstName + 
                           " " + npc.lastName + ".")
@@ -520,7 +524,8 @@ class Game:
                                 str(npc.square.house.number) +
                                ".")
             self.player.notebook.addToKnownNpcs(npc)
-            self.printDescription(description)
+            npcName = npc.firstName + " " + npc.lastName
+            self.printDescription(description, npcName)
         else:
             self.printDescription("Whoops, I can't code " + str(choice))
 
