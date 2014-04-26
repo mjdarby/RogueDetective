@@ -13,6 +13,7 @@ from entity import Player, Police
 from tiles import Decoration, Tile
 from town import Town
 from plan import Plan
+import screen
 
 class Game:
     """The game logic itself. The loop and input handling are here."""
@@ -307,45 +308,10 @@ class Game:
 
         self.gameScreen.noutrefresh(self.cameraY, self.cameraX, 1, 1, Constants.GAMEHEIGHT, Constants.GAMEWIDTH)
 
-        self.moveCursorToPlayer()
+        screen.moveCursorToPlayer(self.screen, self.player)
 
         # Blit the screen
         curses.doupdate()
-
-    def moveCursorToPlayer(self):
-        """Moves the cursor to the player. Duh."""
-        # Make sure the cursor follows the players y/x co-ord
-        # when he's near the minimum values of each
-        cursorX = min(Constants.GAMEWIDTH // 2 + 1, self.player.x + 1)
-        cursorY = min(Constants.GAMEHEIGHT // 2 + 1, self.player.y + 1)
-
-        # Make sure the cursor follows the players y/x co-ord +
-        # the max camera range when he's near the maximum values
-        # of each
-        maxCameraX = Constants.MAPWIDTH - Constants.GAMEWIDTH // 2 - 1
-        maxCameraY = Constants.MAPHEIGHT - Constants.GAMEHEIGHT // 2  - 1
-        if self.player.x > maxCameraX:
-            offset = self.player.x - maxCameraX + Constants.GAMEWIDTH // 2
-            cursorX = offset
-        if self.player.y > maxCameraY:
-            offset = self.player.y - maxCameraY + Constants.GAMEHEIGHT // 2 + 1
-            cursorY = offset
-        self.screen.move(cursorY, cursorX)
-
-    def moveCursorToEntity(self, entity):
-        """Moves the cursor to an entity"""
-        # It's easier to move the cursor to the player, and then move
-        # it to the NPC relative to the player.
-        self.moveCursorToPlayer()
-        (y, x) = self.screen.getyx()
-        y += entity.y - self.player.y
-        x += entity.x - self.player.x
-        # It may transpire that we're somehow trying to do
-        # this for an offscreen dude. Block it for now.
-        try:
-            self.screen.move(y, x)
-        except:
-            pass
 
     def getAnyKey(self):
         """Utility funciton that waits until a ANY input has been entered,
@@ -371,6 +337,30 @@ class Game:
             if (got >= ord('1') and got <= ord(str(numberOfChoices))):
                 return int(chr(got))
 
+    def printStatus(self, status, moveCursor = True):
+        """Prints the status line. Also sets it so it doesn't get wiped until
+        next frame"""
+        self.statusLine = status
+        self.screen.addstr(0, 0, " " * Constants.XRES)
+        self.screen.addstr(0, 0, status)
+        if moveCursor:
+            screen.moveCursorToPlayer(self.screen, self.player)
+
+    def printDescription(self, text, header = None, showAnyKeyPrompt = True):
+        """Prints the description in a nice box before re-drawing the game on
+        closure"""
+        # Print the text
+        if header:
+            underline = '-' * Constants.DESC_BOX_WIDTH
+            screen.printBox(self.screen, [header, underline, text], showAnyKeyPrompt)
+        else:
+            screen.printBox(self.screen, [text], showAnyKeyPrompt)
+        # Wait for an input
+        screen.moveCursorToPlayer(self.screen, self.player)
+        self.getAnyKey()
+        self.printStatus("")
+        self.draw()
+
     def getYesNo(self, message = None):
         """Utility function for getting 'yes/no' responses."""
         gotYesNo = False
@@ -383,65 +373,6 @@ class Game:
                 gotYesNo = True
         self.printStatus("")
         return key is ord('y')
-
-    def printBox(self, paragraphs, anyKeyPrompt=False):
-        """Prints a box on the screen. Caller is responsible for clearing screen afterwards."""
-        # Prepare the text!
-        wrappedText = []
-        for paragraph in paragraphs:
-            wrappedText += textwrap.wrap(paragraph, Constants.DESC_BOX_WIDTH)
-        # Print the top border
-        topBottomBorder = "+" + (Constants.DESC_BOX_WIDTH * "-") + "+"
-        self.screen.addstr(0, 0, topBottomBorder)
-        lineNo = 1
-        # Print the actual text
-        for line in wrappedText:
-            printedLine = "|" + line.ljust(Constants.DESC_BOX_WIDTH) + "|"
-            self.screen.addstr(lineNo, 0, printedLine)
-            lineNo += 1
-        if anyKeyPrompt:
-            self.screen.addstr(lineNo, 0,
-                               "|" +
-                               "<Press any key to continue>".ljust(Constants.DESC_BOX_WIDTH) +
-                               "|")
-            lineNo += 1
-        # Bottom border
-        self.screen.addstr(lineNo, 0, topBottomBorder)
-
-    def printStatus(self, status, moveCursor = True):
-        """Prints the status line. Also sets it so it doesn't get wiped until
-        next frame"""
-        self.statusLine = status
-        self.screen.addstr(0, 0, " " * Constants.XRES)
-        self.screen.addstr(0, 0, status)
-        if moveCursor:
-            self.moveCursorToPlayer()
-
-    def printDescription(self, text, header = None, showAnyKeyPrompt = True):
-        """Prints the description in a nice box before re-drawing the game on
-        closure"""
-        # Print the text
-        if header:
-            underline = '-' * Constants.DESC_BOX_WIDTH
-            self.printBox([header, underline, text], showAnyKeyPrompt)
-        else:
-            self.printBox([text], showAnyKeyPrompt)
-        # Wait for an input
-        self.moveCursorToPlayer()
-        self.getAnyKey()
-        self.printStatus("")
-        self.draw()
-
-    def printDialogueChoices(self, choices, npcName = None):
-        choices = zip(range(0, len(choices)), choices)
-        choices = [str(idx+1) + ") " + choice for (idx, choice) in choices]
-        text = ("\n".join(choices)).splitlines()
-        if npcName:
-            header = "Talking to " + npcName
-            text.insert(0, '-' * Constants.DESC_BOX_WIDTH)
-            text.insert(0, header)
-        self.printBox(text, False)
-        self.moveCursorToPlayer()
 
     def kickDoor(self):
         """Prompts for direction and attempts to kick down the door there if
@@ -496,38 +427,8 @@ class Game:
             self.printStatus("I don't think they're in a talkative mood.")
             return False
         else:
-            self.beginConversation(npc)
+            npc.beginConversation()
             return True
-
-    def beginConversation(self, npc):
-        testChoices = ["Hello!", "My name is Kate!"]
-        npcName = None
-        if not self.player.notebook.isNpcKnown(npc):
-            testChoices.append("Who are you?")
-        else:
-            npcName = npc.firstName + " " + npc.lastName
-        self.printDialogueChoices(testChoices, npcName)
-        choice = self.getDialogueChoice(len(testChoices))
-        self.draw()
-        # TODO: If you know the character's name, their name should
-        # appear in the header of the box. Also clean this whole thing
-        # up, man.
-        if choice == 1:
-            self.printDescription("Why, hello to you too!", npcName)
-        elif choice == 2:
-            self.printDescription("Fascinating.", npcName)
-        elif choice == 3:
-            description = ("My name is " + npc.firstName + 
-                          " " + npc.lastName + ".")
-            if npc in self.villagers:
-                description += (" I live in house " + 
-                                str(npc.square.house.number) +
-                               ".")
-            self.player.notebook.addToKnownNpcs(npc)
-            npcName = npc.firstName + " " + npc.lastName
-            self.printDescription(description, npcName)
-        else:
-            self.printDescription("Whoops, I can't code " + str(choice))
 
     def openDoor(self):
         self.printStatus("Which direction?")
@@ -570,7 +471,7 @@ class Game:
             npcIdx = 0
             while not npcSelected:
                 self.printStatus(promptText, False)
-                self.moveCursorToEntity(visibleNpcs[npcIdx])
+                screen.moveCursorToEntity(self.screen, self.player, visibleNpcs[npcIdx])
                 key = self.getKey([InputActions.MOVE_LEFT,
                                    InputActions.MOVE_RIGHT,
                                    selectionAction,

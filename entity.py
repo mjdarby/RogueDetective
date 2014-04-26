@@ -5,14 +5,11 @@ import random
 
 # Our imports
 from enums import Direction, Gender
-
 from plan import Plan
-
 from constants import Constants
-
 from behaviours import DefaultBehaviour, Dead
 
-import names
+import names, dialogue, screen
 
 class Entity(object):
     """The base entity object, for players and NPCs"""
@@ -296,6 +293,33 @@ class NPC(Entity):
         self.alive = True
         self.killer = False
 
+        self.dialogue = dialogue.Dialogue(self)
+        standardDialogueChoice1 = dialogue.DialogueChoice("Hello!", 
+                                                          "Hello to you too!")
+        standardDialogueChoice2 = dialogue.DialogueChoice("My name is Kate!", 
+                                                          "Fascinating.")
+        def responseFunction3(npc, response):
+            npc.game.player.notebook.addToKnownNpcs(self)
+            actualResponse = "My name is " + npc.firstName + " " + npc.lastName
+            actualResponse += ". I live in house number " + str(npc.square.house.number)
+            actualResponse += "."
+            return actualResponse
+        standardDialogueChoice3 = dialogue.DialogueChoice("Who are you?", 
+                                                          "",
+                                                          responseFunction3)
+
+        standardDialogueChoice4 = dialogue.DialogueChoice("No, hello to YOU!", 
+                                                          "We're done talking, freakshow.")
+        secondNode = dialogue.DialogueNode()
+        secondNode.addChoice(standardDialogueChoice4)
+
+        choicePredicate3 = lambda: not self.game.player.notebook.isNpcKnown(self)
+        dialogueRoot = dialogue.DialogueNode()
+        dialogueRoot.addChoice(standardDialogueChoice1, None, secondNode)
+        dialogueRoot.addChoice(standardDialogueChoice2)
+        dialogueRoot.addChoice(standardDialogueChoice3, choicePredicate3)
+        self.dialogue.setRootNode(dialogueRoot)
+
         # Fluffy, plot stuff
         self.gender = random.choice([Gender.MALE, Gender.FEMALE])
         self.firstName = "Dave"
@@ -318,6 +342,9 @@ class NPC(Entity):
         self.alive = False
         self.character = '%'
         self.currentBehaviour = Dead(self)
+
+    def beginConversation(self):
+        self.dialogue.beginConversation()
 
     def isAtHome(self):
         # If we need to know that the NPC is at home, regardless of their
