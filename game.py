@@ -502,7 +502,8 @@ class Game:
         else:
             status = ""
             if self.player.notebook.isNpcKnown(npc):
-                status = ("That's " + npc.firstName + " " + npc.lastName + "." + " " +
+                thatWord = "That's " if npc.alive else "That was "
+                status = (thatWord + npc.firstName + " " + npc.lastName + "." + " " +
                           npc.getDescription())
             else:
                 status = "You don't know who that is. " + npc.getDescription()
@@ -556,6 +557,7 @@ class Game:
             killer = random.choice(self.villagers)
             if killer is not victim:
                 self.killer = killer
+                killer.killer = True
                 break
         victim.die()
 
