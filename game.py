@@ -67,6 +67,8 @@ class Game:
         self.town = Town(self, 5, 5, 3, 3)
 
         # Setup the murder..
+        self.victim = None
+        self.killer = None
         self.murderSetup()
 
         # Put together the NPC schedules
@@ -548,13 +550,14 @@ class Game:
     def murderSetup(self):
         """Picks the victim and murderer, and kills the victim"""
         victim = random.choice(self.villagers)
+        self.victim = victim
         killer = None
         while True:
             killer = random.choice(self.villagers)
             if killer is not victim:
+                self.killer = killer
                 break
         victim.die()
-        killer = True
 
         house = victim.square.house
         # Unlock the front door

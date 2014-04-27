@@ -504,3 +504,18 @@ class Police(NPC):
     def __init__(self, game, y, x):
         super(Police, self).__init__(game, y, x)
         self.colour = Constants.COLOUR_BLUE
+
+        def corpseDialogueChoiceFunction(npc, response):
+            victim = npc.game.victim
+            npc.game.player.notebook.addToKnownNpcs(victim)
+            pronoun1 = "His" if victim.gender == Gender.MALE else "Her"
+            pronoun2 = "guy" if victim.gender == Gender.MALE else "girl"
+            actualResponse = pronoun1 + " name was " + victim.firstName + " " + victim.lastName
+            actualResponse += ". Poor " + pronoun2 + "."
+            return actualResponse
+ 
+        corpseDialogueChoice = dialogue.DialogueChoice("So who's the stiff?", 
+                                                        "",
+                                                        corpseDialogueChoiceFunction)
+        choicePredicate = lambda: not self.game.player.notebook.isNpcKnown(self.game.victim)
+        self.dialogue.root.addChoice(corpseDialogueChoice, choicePredicate)
