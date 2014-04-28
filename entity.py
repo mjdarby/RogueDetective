@@ -32,36 +32,24 @@ class Entity(object):
         elif direction == Direction.RIGHT:
             candidateX += steps
 
-        try:
-            wall = self.game.walls[(candidateY, candidateX)]
+        key = (candidateY, candidateX)
+        if key in self.game.walls or key in self.game.fences:
             return True
-        except Exception as e:
-            # No wall.
-            pass
 
-        try:
-            door = self.game.doors[(candidateY, candidateX)]
+        if key in self.game.doors:
+            door = self.game.doors[key]
             if door.closed:
                 return True
-        except Exception as e:
-            # No door.
-            pass
-
-        try:
-            fence = self.game.fences[(candidateY, candidateX)]
-            return True
-        except:
-            pass
-
+        
         for npc in self.game.npcs:
-            if (npc.y, npc.x) == (candidateY, candidateX):
+            if (npc.y, npc.x) == key:
                 return True
 
         for police in self.game.police:
-            if (police.y, police.x) == (candidateY, candidateX):
+            if (police.y, police.x) == key:
                 return True
 
-        if (self.game.player.y, self.game.player.x) == (candidateY, candidateX):
+        if (self.game.player.y, self.game.player.x) == key:
             return True
 
         return False
