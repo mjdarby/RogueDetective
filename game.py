@@ -65,6 +65,7 @@ class Game:
 
         # Town creation
         self.town = Town(self, 5, 5, 3, 3)
+        self.town2 = Town(self, 5, 88, 3, 3)
 
         # Setup the murder..
         self.victim = None

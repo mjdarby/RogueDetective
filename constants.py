@@ -27,7 +27,7 @@ class Constants:
     # NB. Must be greater than or equal to the game width/height
     # May remove this restriction later on, but right now breaking it
     # messed with the cursor logic.
-    MAPWIDTH = 140
+    MAPWIDTH = 180
     MAPHEIGHT = 75
 
     # Screen width/height: Size of the curses pad. +1 height because

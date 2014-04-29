@@ -366,3 +366,4 @@ class House(Building):
     def __init__(self, game):
         super(House, self).__init__(game)
 
+
